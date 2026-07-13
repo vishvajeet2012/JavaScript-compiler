@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import styles from './Header.module.css';
+import ServerStatus from './ServerStatus';
 
-export default function Header({ scrolled }) {
+export default function Header({ brand, serverOnline, health, scrolled }) {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const logo = brand?.logo || 'JS';
+  const name = brand?.name || 'JS Compiler';
 
   const navLinks = [
     { label: 'Home', href: '#home' },
@@ -16,8 +20,8 @@ export default function Header({ scrolled }) {
   return (
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
       <div className={styles.container}>
-        <a href="#home" className={styles.logo}>
-          VS
+        <a href="#home" className={styles.logo} title={name}>
+          {logo}
         </a>
 
         <nav className={`${styles.nav} ${menuOpen ? styles.navOpen : ''}`}>
@@ -31,6 +35,9 @@ export default function Header({ scrolled }) {
               {link.label}
             </a>
           ))}
+          <div className={styles.statusMobile}>
+            <ServerStatus online={serverOnline} health={health} />
+          </div>
           <a
             href="#contact"
             className={styles.ctaMobile}
@@ -40,9 +47,14 @@ export default function Header({ scrolled }) {
           </a>
         </nav>
 
-        <a href="#contact" className={styles.cta}>
-          Get Started
-        </a>
+        <div className={styles.right}>
+          <div className={styles.statusDesktop}>
+            <ServerStatus online={serverOnline} health={health} />
+          </div>
+          <a href="#contact" className={styles.cta}>
+            Get Started
+          </a>
+        </div>
 
         <button
           className={`${styles.hamburger} ${menuOpen ? styles.hamburgerOpen : ''}`}

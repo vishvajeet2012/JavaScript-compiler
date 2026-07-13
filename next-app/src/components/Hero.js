@@ -1,9 +1,20 @@
 import styles from './Hero.module.css';
 
-export default function Hero() {
+const defaults = {
+  badge: 'Desktop App · Free & Pro',
+  titleLine: 'Write. Run. Save.',
+  titleHighlight: 'JavaScript',
+  subtitle:
+    'A fast desktop JavaScript compiler with folders, templates, local DB, and Pro activation.',
+  primaryCta: { label: 'Explore Features', href: '#features' },
+  secondaryCta: { label: 'Contact Us', href: '#contact' },
+};
+
+export default function Hero({ data }) {
+  const hero = { ...defaults, ...data };
+
   return (
     <section id="home" className={styles.hero}>
-      {/* Animated gradient orb */}
       <div className={styles.orbWrapper}>
         <div className={styles.orb} />
       </div>
@@ -11,22 +22,19 @@ export default function Hero() {
       <div className={styles.container}>
         <div className={styles.badge}>
           <span className={styles.badgeIcon}>✨</span>
-          Available for Freelance Projects
+          {hero.badge}
         </div>
 
         <h1 className={styles.heading}>
-          <span className={styles.line}>Build Something</span>
-          <span className={styles.gradientText}>Amazing</span>
+          <span className={styles.line}>{hero.titleLine}</span>
+          <span className={styles.gradientText}>{hero.titleHighlight}</span>
         </h1>
 
-        <p className={styles.subtitle}>
-          Full Stack Developer crafting modern web experiences with cutting-edge
-          technologies. From concept to deployment.
-        </p>
+        <p className={styles.subtitle}>{hero.subtitle}</p>
 
         <div className={styles.actions}>
-          <a href="#features" className={styles.primaryBtn}>
-            View Projects
+          <a href={hero.primaryCta?.href || '#features'} className={styles.primaryBtn}>
+            {hero.primaryCta?.label || 'Explore Features'}
             <svg
               width="16"
               height="16"
@@ -43,8 +51,11 @@ export default function Hero() {
               />
             </svg>
           </a>
-          <a href="#contact" className={styles.ghostBtn}>
-            Contact Me
+          <a
+            href={hero.secondaryCta?.href || '#contact'}
+            className={styles.ghostBtn}
+          >
+            {hero.secondaryCta?.label || 'Contact Us'}
           </a>
         </div>
       </div>

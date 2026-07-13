@@ -12,20 +12,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Vishvajeet Shukla | Full Stack Developer",
+  title: "JS Compiler | Desktop JavaScript Compiler",
   description:
-    "Full Stack Developer helping businesses build their online presence with modern web solutions. Specializing in Next.js, React, and Node.js.",
+    "Write, run, and save JavaScript snippets offline with folders, templates, local DB, and Pro activation.",
   keywords: [
-    "Full Stack Developer",
-    "Next.js",
-    "React",
-    "Node.js",
-    "Web Developer",
+    "JavaScript Compiler",
+    "Desktop App",
+    "Electron",
+    "JS IDE",
+    "Code Snippets",
   ],
   openGraph: {
-    title: "Vishvajeet Shukla | Full Stack Developer",
+    title: "JS Compiler | Desktop JavaScript Compiler",
     description:
-      "Full Stack Developer helping businesses build their online presence with modern web solutions.",
+      "Write, run, and save JavaScript snippets offline with folders, templates, and Pro activation.",
     type: "website",
   },
 };

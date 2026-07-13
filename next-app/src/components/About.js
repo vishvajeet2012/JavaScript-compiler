@@ -1,36 +1,29 @@
 import styles from './About.module.css';
 
-const techStack = [
-  'Next.js',
-  'React',
-  'Node.js',
-  'Express',
-  'MongoDB',
-  'PostgreSQL',
-  'TypeScript',
-  'Docker',
-  'AWS',
-  'Git',
-];
+export default function About({ data }) {
+  const title = data?.title || 'About JS Compiler';
+  const paragraphs = data?.paragraphs || [
+    'JS Compiler is a desktop app for writing, running, and saving JavaScript snippets.',
+  ];
+  const techStack = data?.techStack || [
+    'Electron',
+    'JavaScript',
+    'Node.js',
+    'Express',
+    'Next.js',
+    'React',
+  ];
 
-export default function About() {
   return (
     <section id="about" className={styles.section}>
       <div className={styles.container}>
         <div className={styles.content}>
-          <h2 className={styles.title}>About Me</h2>
-          <p className={styles.description}>
-            I&apos;m a Full Stack Developer passionate about building modern,
-            performant web applications. With expertise spanning frontend
-            frameworks, backend architectures, and cloud infrastructure, I
-            transform ideas into polished, production-ready products.
-          </p>
-          <p className={styles.description}>
-            I believe great software comes from clean code, thoughtful design,
-            and relentless attention to detail. Whether it&apos;s a startup MVP
-            or an enterprise platform, I bring the same dedication to every
-            project.
-          </p>
+          <h2 className={styles.title}>{title}</h2>
+          {paragraphs.map((p, i) => (
+            <p key={i} className={styles.description}>
+              {p}
+            </p>
+          ))}
         </div>
 
         <div className={styles.stackSide}>

@@ -1,57 +1,29 @@
 import styles from './Features.module.css';
 
-const features = [
-  {
-    icon: '🚀',
-    title: 'Frontend Development',
-    description:
-      'Building responsive, performant UIs with React & Next.js',
-  },
-  {
-    icon: '⚡',
-    title: 'Backend Systems',
-    description:
-      'Scalable Node.js APIs with Express, MongoDB & PostgreSQL',
-  },
-  {
-    icon: '🎨',
-    title: 'UI/UX Design',
-    description:
-      'Clean, modern interfaces that users love to interact with',
-  },
-  {
-    icon: '📱',
-    title: 'Mobile Responsive',
-    description:
-      'Pixel-perfect designs that work beautifully on every device',
-  },
-  {
-    icon: '🔒',
-    title: 'Security First',
-    description:
-      'Implementing best practices for secure, production-ready apps',
-  },
-  {
-    icon: '🛠️',
-    title: 'DevOps & Deploy',
-    description:
-      'CI/CD pipelines, Docker, and cloud deployment on Vercel & AWS',
-  },
-];
+export default function Features({ features = [] }) {
+  const list =
+    features.length > 0
+      ? features
+      : [
+          {
+            icon: '⚡',
+            title: 'Instant Run',
+            description: 'Write and execute JavaScript snippets instantly.',
+          },
+        ];
 
-export default function Features() {
   return (
     <section id="features" className={styles.section}>
       <div className={styles.container}>
         <div className={styles.header}>
-          <h2 className={styles.title}>What I Do</h2>
+          <h2 className={styles.title}>Features</h2>
           <p className={styles.subtitle}>
-            Specialized skills to bring your ideas to life
+            Everything you need to write, run, and organize JavaScript
           </p>
         </div>
 
         <div className={styles.grid}>
-          {features.map((feature, index) => (
+          {list.map((feature, index) => (
             <div
               key={feature.title}
               className={styles.card}

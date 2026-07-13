@@ -250,6 +250,40 @@ function closeAllModals() {
   document.querySelectorAll(".modal").forEach((m) => m.classList.add("hidden"));
 }
 
+function customPrompt(title, defaultValue = "") {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("modal-prompt");
+    const titleEl = document.getElementById("prompt-title");
+    const inputEl = document.getElementById("prompt-input");
+    const btnCancel = document.getElementById("btn-cancel-prompt");
+    const btnSubmit = document.getElementById("btn-submit-prompt");
+
+    titleEl.textContent = title;
+    inputEl.value = defaultValue;
+    modal.classList.remove("hidden");
+    inputEl.focus();
+    inputEl.select();
+
+    const cleanup = () => {
+      modal.classList.add("hidden");
+      btnCancel.removeEventListener("click", onCancel);
+      btnSubmit.removeEventListener("click", onSubmit);
+      inputEl.removeEventListener("keydown", onKeyDown);
+    };
+
+    const onCancel = () => { cleanup(); resolve(null); };
+    const onSubmit = () => { cleanup(); resolve(inputEl.value); };
+    const onKeyDown = (e) => {
+      if (e.key === "Enter") onSubmit();
+      if (e.key === "Escape") { e.stopPropagation(); onCancel(); }
+    };
+
+    btnCancel.addEventListener("click", onCancel);
+    btnSubmit.addEventListener("click", onSubmit);
+    inputEl.addEventListener("keydown", onKeyDown);
+  });
+}
+
 // ── Workspace ─────────────────────────────────────────────
 
 async function refreshWorkspace() {
@@ -406,7 +440,7 @@ async function moveItem(itemId, itemType, targetFolderId) {
 }
 
 async function promptNewFolder(parentId = null) {
-  const name = prompt("Folder name:");
+  const name = await customPrompt("Folder name:", "");
   if (!name?.trim()) return;
   await window.compiler.createFolder(name.trim(), parentId);
   if (parentId) openFolders.add(parentId);
@@ -414,14 +448,14 @@ async function promptNewFolder(parentId = null) {
 }
 
 async function promptRenameFolder(folder) {
-  const name = prompt("Rename folder:", folder.name);
+  const name = await customPrompt("Rename folder:", folder.name);
   if (!name?.trim() || name === folder.name) return;
   await window.compiler.renameFolder(folder.id, name.trim());
   await refreshWorkspace();
 }
 
 async function promptRenameSnippet(snippet) {
-  const title = prompt("Rename file:", snippet.title);
+  const title = await customPrompt("Rename file:", snippet.title);
   if (!title?.trim() || title === snippet.title) return;
   await window.compiler.saveSnippet({ id: snippet.id, title: title.trim(), code: snippet.code, folderId: snippet.folder_id });
   if (activeSnippetId === snippet.id) document.getElementById("file-name").value = title.trim();

@@ -16,6 +16,15 @@ const getInfo = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /api/v1/landing
+ * Returns home / landing page content for next-app
+ */
+const getLanding = asyncHandler(async (req, res) => {
+  const landing = apiService.getLandingContent();
+  ApiResponse.ok(landing, 'Landing content retrieved').send(res);
+});
+
+/**
  * POST /api/v1/contact
  * Processes a contact form submission from the landing page
  *
@@ -31,5 +40,6 @@ const submitContact = asyncHandler(async (req, res) => {
 
 module.exports = {
   getInfo,
+  getLanding,
   submitContact,
 };

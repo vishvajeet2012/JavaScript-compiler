@@ -78,6 +78,23 @@
   width: 100%;
 }
 
+/* --- Right side (status + CTA) --- */
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.statusDesktop {
+  display: flex;
+  align-items: center;
+}
+
+.statusMobile {
+  display: none;
+  margin-top: var(--space-2);
+}
+
 /* --- CTA Button --- */
 .cta {
   font-size: var(--text-sm);
@@ -178,6 +195,14 @@
 
   .cta {
     display: none;
+  }
+
+  .statusDesktop {
+    display: none;
+  }
+
+  .statusMobile {
+    display: flex;
   }
 
   .ctaMobile {
