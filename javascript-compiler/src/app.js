@@ -100,8 +100,140 @@ async function init() {
   renderTemplates();
   startAutoSave();
   bindEvents();
+  await initVersionAndUpdates();
   document.getElementById("machine-id").textContent =
     (await window.compiler.getMachineId()).slice(0, 16) + "...";
+}
+
+// ── Version + Auto-update ─────────────────────────────────
+
+async function initVersionAndUpdates() {
+  try {
+    const version = await window.compiler.getAppVersion();
+    document.getElementById("app-version").textContent = `v${version}`;
+    document.getElementById("settings-version").textContent = `v${version}`;
+    document.title = `JS Compiler v${version}`;
+
+    const status = await window.compiler.getUpdateStatus();
+    applyUpdateStatus(status);
+
+    if (window.compiler.onUpdateStatus) {
+      window.compiler.onUpdateStatus(applyUpdateStatus);
+    }
+  } catch (e) {
+    console.warn("Version/update init failed:", e);
+  }
+}
+
+function applyUpdateStatus(data) {
+  if (!data) return;
+
+  const versionEl = document.getElementById("app-version");
+  const settingsVer = document.getElementById("settings-version");
+  const titleStatus = document.getElementById("update-status");
+  const settingsText = document.getElementById("settings-update-text");
+  const progressWrap = document.getElementById("update-progress-wrap");
+  const progressFill = document.getElementById("update-progress-fill");
+  const progressLabel = document.getElementById("update-progress-label");
+  const btnInstall = document.getElementById("btn-install-update");
+  const btnCheck = document.getElementById("btn-check-update");
+
+  if (data.currentVersion) {
+    versionEl.textContent = `v${data.currentVersion}`;
+    settingsVer.textContent = `v${data.currentVersion}`;
+  }
+
+  let titleMsg = "";
+  let titleClass = "update-status";
+  let settingsMsg = "Up to date";
+
+  switch (data.status) {
+    case "checking":
+      titleMsg = "Checking updates…";
+      settingsMsg = "Checking for updates…";
+      if (btnCheck) btnCheck.disabled = true;
+      break;
+    case "available":
+      titleMsg = `Update ${data.availableVersion}`;
+      titleClass += " update-warn";
+      settingsMsg = `Version ${data.availableVersion} available — downloading…`;
+      break;
+    case "downloading": {
+      const pct = data.progress?.percent ?? 0;
+      titleMsg = `Downloading ${pct}%`;
+      titleClass += " update-warn";
+      settingsMsg = `Downloading update… ${pct}%`;
+      progressWrap.classList.remove("hidden");
+      progressFill.style.width = `${pct}%`;
+      progressLabel.textContent = `${pct}%`;
+      break;
+    }
+    case "downloaded":
+      titleMsg = "Update ready";
+      titleClass += " update-ok";
+      settingsMsg = `v${data.availableVersion} ready — restart to install`;
+      progressWrap.classList.remove("hidden");
+      progressFill.style.width = "100%";
+      progressLabel.textContent = "100%";
+      btnInstall.classList.remove("hidden");
+      if (btnCheck) btnCheck.disabled = false;
+      break;
+    case "not-available":
+      titleMsg = "";
+      settingsMsg = data.isDev
+        ? "Packaged app required for auto-update"
+        : "You have the latest version";
+      progressWrap.classList.add("hidden");
+      btnInstall.classList.add("hidden");
+      if (btnCheck) btnCheck.disabled = false;
+      break;
+    case "error":
+      titleMsg = data.isDev ? "" : "Update error";
+      titleClass += data.isDev ? "" : " update-err";
+      settingsMsg = data.error || "Update check failed";
+      if (btnCheck) btnCheck.disabled = false;
+      break;
+    default:
+      settingsMsg = data.isDev
+        ? "Auto-update works after install (packaged build)"
+        : "Ready";
+      if (btnCheck) btnCheck.disabled = false;
+  }
+
+  if (titleMsg) {
+    titleStatus.textContent = titleMsg;
+    titleStatus.className = titleClass;
+  } else {
+    titleStatus.textContent = "";
+    titleStatus.className = "update-status hidden";
+  }
+
+  settingsText.textContent = settingsMsg;
+}
+
+async function checkForUpdatesManual() {
+  const btn = document.getElementById("btn-check-update");
+  btn.disabled = true;
+  btn.textContent = "Checking…";
+  try {
+    const result = await window.compiler.checkForUpdates();
+    applyUpdateStatus(result);
+    if (result.isDev || result.error?.includes("packaged")) {
+      showToast("Auto-update only works in the installed app.", "error");
+    } else if (result.status === "not-available" || result.ok) {
+      showToast("Update check complete.", "success");
+    }
+  } catch (e) {
+    showToast(e.message || "Update check failed", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Check for updates";
+  }
+}
+
+async function installUpdateNow() {
+  const result = await window.compiler.installUpdate();
+  if (!result.ok) showToast(result.error || "No update ready", "error");
 }
 
 // ── Settings ──────────────────────────────────────────────
@@ -116,7 +248,13 @@ async function openSettings() {
   document.getElementById("set-autosave-interval").value = settings.auto_save_interval || "30";
   document.getElementById("set-timeout").value = settings.execution_timeout || "5";
   document.getElementById("set-theme").value = settings.editor_theme || "vs-dark";
-  document.getElementById("set-server").value = settings.activation_server || "http://localhost:5050";
+  document.getElementById("set-server").value = settings.activation_server || "http://localhost:5000";
+  try {
+    const version = await window.compiler.getAppVersion();
+    document.getElementById("settings-version").textContent = `v${version}`;
+    const status = await window.compiler.getUpdateStatus();
+    applyUpdateStatus(status);
+  } catch (_) { /* ignore */ }
   openModal("modal-settings");
 }
 
@@ -618,6 +756,8 @@ function bindEvents() {
   document.getElementById("btn-settings").addEventListener("click", openSettings);
   document.getElementById("btn-save-settings").addEventListener("click", saveSettingsForm);
   document.getElementById("btn-cancel-settings").addEventListener("click", () => closeModal("modal-settings"));
+  document.getElementById("btn-check-update").addEventListener("click", checkForUpdatesManual);
+  document.getElementById("btn-install-update").addEventListener("click", installUpdateNow);
   document.getElementById("btn-shortcuts").addEventListener("click", () => openModal("modal-shortcuts"));
   document.getElementById("btn-close-shortcuts").addEventListener("click", () => closeModal("modal-shortcuts"));
   document.getElementById("btn-clear").addEventListener("click", resetEditor);

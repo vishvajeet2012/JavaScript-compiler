@@ -17,8 +17,10 @@
         <img src="assets/icons/js.svg" alt="" width="20" height="20" />
       </div>
       <span>JS COMPILER</span>
+      <span id="app-version" class="version-badge" title="App version">v—</span>
     </div>
     <div class="titlebar-right">
+      <span id="update-status" class="update-status hidden" title="Update status"></span>
       <span id="autosave-status" class="autosave-status"></span>
       <button id="btn-shortcuts" class="btn-ghost btn-titlebar" title="Keyboard shortcuts">⌨</button>
       <button id="btn-settings" class="btn-ghost btn-titlebar" title="Settings">⚙</button>
@@ -142,8 +144,25 @@
         </label>
         <label class="setting-row">
           <span>Activation server URL</span>
-          <input type="text" id="set-server" class="setting-input" placeholder="http://localhost:5050" />
+          <input type="text" id="set-server" class="setting-input" placeholder="http://localhost:5000" />
         </label>
+        <div class="setting-divider"></div>
+        <div class="setting-row setting-row-static">
+          <span>App version</span>
+          <strong id="settings-version">—</strong>
+        </div>
+        <div class="setting-row setting-row-static">
+          <span>Updates</span>
+          <span id="settings-update-text" class="update-hint">—</span>
+        </div>
+        <div class="update-actions">
+          <button type="button" id="btn-check-update" class="btn-secondary">Check for updates</button>
+          <button type="button" id="btn-install-update" class="btn-primary hidden">Restart & install</button>
+        </div>
+        <div id="update-progress-wrap" class="update-progress-wrap hidden">
+          <div class="update-progress-bar"><div id="update-progress-fill" class="update-progress-fill"></div></div>
+          <span id="update-progress-label" class="update-progress-label">0%</span>
+        </div>
       </div>
       <div class="modal-actions">
         <button id="btn-cancel-settings" class="btn-ghost">Cancel</button>

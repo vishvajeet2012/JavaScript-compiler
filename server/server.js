@@ -1,6 +1,6 @@
 const app = require('./src/app');
 const config = require('./src/config');
-// const { connectDB, disconnectDB } = require('./src/config/db');
+const { connectDB, disconnectDB } = require('./src/config/db');
 
 /**
  * Server entry point
@@ -9,10 +9,19 @@ const config = require('./src/config');
 
 const startServer = async () => {
   try {
-    // Connect to database (uncomment when ready)
-    // await connectDB();
+    await connectDB();
+
+    // Seed default pricing plans if empty (admin can still edit)
+    try {
+      const { seedDefaultPlans } = require('./src/services/key.service');
+      const seed = await seedDefaultPlans();
+      if (seed.seeded) console.log('[DB] Default pricing plans seeded');
+    } catch (e) {
+      console.warn('[DB] Seed plans skipped:', e.message);
+    }
 
     const server = app.listen(config.port, () => {
+      const corsLabel = config.corsOriginLabel || String(config.corsOrigin);
       console.log(`
   ╔══════════════════════════════════════════════╗
   ║                                              ║
@@ -20,7 +29,7 @@ const startServer = async () => {
   ║                                              ║
   ║   Environment : ${config.env.padEnd(27)}║
   ║   Port        : ${String(config.port).padEnd(27)}║
-  ║   CORS Origin : ${config.corsOrigin.padEnd(27)}║
+  ║   CORS        : ${corsLabel.slice(0, 27).padEnd(27)}║
   ║   Health      : http://localhost:${config.port}/api/v1/health  ║
   ║                                              ║
   ╚══════════════════════════════════════════════╝
@@ -34,8 +43,7 @@ const startServer = async () => {
       server.close(async () => {
         console.log('[SERVER] HTTP server closed');
 
-        // Disconnect database (uncomment when ready)
-        // await disconnectDB();
+        await disconnectDB();
 
         console.log('[SERVER] Cleanup complete. Exiting.');
         process.exit(0);

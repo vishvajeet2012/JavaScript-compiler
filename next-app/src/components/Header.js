@@ -12,6 +12,7 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
 
   const navLinks = [
     { label: 'Home', href: '#home' },
+    { label: 'Download', href: '#download' },
     { label: 'Features', href: '#features' },
     { label: 'About', href: '#about' },
     { label: 'Contact', href: '#contact' },
@@ -39,11 +40,11 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
             <ServerStatus online={serverOnline} health={health} />
           </div>
           <a
-            href="#contact"
+            href="#download"
             className={styles.ctaMobile}
             onClick={() => setMenuOpen(false)}
           >
-            Get Started
+            Download
           </a>
         </nav>
 
@@ -51,8 +52,8 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
           <div className={styles.statusDesktop}>
             <ServerStatus online={serverOnline} health={health} />
           </div>
-          <a href="#contact" className={styles.cta}>
-            Get Started
+          <a href="#download" className={styles.cta}>
+            Download
           </a>
         </div>
 

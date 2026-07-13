@@ -35,3 +35,7 @@ logs/
 
 # Large build artifacts
 javascript-compiler/dist/
+admin/dist/
+
+# Vercel
+.vercel

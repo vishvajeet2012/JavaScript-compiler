@@ -1,35 +1,52 @@
+const mongoose = require('mongoose');
 const config = require('./index');
 
 /**
- * Database configuration (MongoDB placeholder)
- *
- * Uncomment and install mongoose when ready to connect:
- *   npm install mongoose
- *
- * Usage in server.js:
- *   const { connectDB } = require('./src/config/db');
- *   await connectDB();
+ * MongoDB connection — safe for local server + Vercel serverless
+ * Reuses the same connection across warm invocations
  */
 
-const connectDB = async () => {
-  try {
-    // const mongoose = require('mongoose');
-    // const conn = await mongoose.connect(config.db.uri, {
-    //   // Mongoose 7+ no longer needs these options, but kept for reference
-    // });
-    // console.log(`MongoDB connected: ${conn.connection.host}`);
+let connecting = null;
 
-    console.log('[DB] Database connection placeholder — install mongoose to enable');
-  } catch (error) {
-    console.error(`[DB] Connection error: ${error.message}`);
-    process.exit(1);
+const connectDB = async () => {
+  // Already connected
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
   }
+
+  // In-flight connect
+  if (connecting) return connecting;
+
+  connecting = mongoose
+    .connect(config.db.uri, {
+      // Serverless-friendly
+      serverSelectionTimeoutMS: 10000,
+      maxPoolSize: 5,
+    })
+    .then((conn) => {
+      console.log(`[DB] MongoDB connected: ${conn.connection.host}`);
+      connecting = null;
+      return conn;
+    })
+    .catch((error) => {
+      connecting = null;
+      console.error(`[DB] Connection error: ${error.message}`);
+      // Don't process.exit on Vercel — throw so handler can return 503
+      if (process.env.VERCEL) {
+        throw error;
+      }
+      process.exit(1);
+    });
+
+  return connecting;
 };
 
 const disconnectDB = async () => {
   try {
-    // await require('mongoose').disconnect();
-    console.log('[DB] Database disconnected');
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      console.log('[DB] Database disconnected');
+    }
   } catch (error) {
     console.error(`[DB] Disconnect error: ${error.message}`);
   }

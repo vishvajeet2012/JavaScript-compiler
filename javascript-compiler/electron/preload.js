@@ -25,4 +25,14 @@ contextBridge.exposeInMainWorld("compiler", {
   getDraft: () => ipcRenderer.invoke("get-draft"),
   clearDraft: () => ipcRenderer.invoke("clear-draft"),
   exportFile: (data) => ipcRenderer.invoke("export-file", data),
+  // Version + auto-update
+  getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  getUpdateStatus: () => ipcRenderer.invoke("get-update-status"),
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  installUpdate: () => ipcRenderer.invoke("install-update"),
+  onUpdateStatus: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("update-status", handler);
+    return () => ipcRenderer.removeListener("update-status", handler);
+  },
 });

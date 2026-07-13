@@ -174,6 +174,11 @@ function clearActivation() {
     UPDATE activation SET is_pro=0, activation_key=NULL, machine_id=NULL,
       activated_at=NULL, last_verified=NULL, token=NULL WHERE id=1
   `).run();
+  try {
+    setSetting("license_expires_at", "");
+  } catch {
+    /* ignore */
+  }
 }
 
 const DEFAULT_SETTINGS = {
@@ -181,7 +186,7 @@ const DEFAULT_SETTINGS = {
   auto_save_interval: "30",
   execution_timeout: "5",
   editor_theme: "vs-dark",
-  activation_server: "http://localhost:5050",
+  activation_server: "http://localhost:5000",
 };
 
 function getAllSettings() {

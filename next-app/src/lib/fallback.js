@@ -14,8 +14,52 @@ export const FALLBACK_LANDING = {
     titleHighlight: 'JavaScript',
     subtitle:
       'A fast desktop JavaScript compiler with folders, templates, local DB, and Pro activation. Code offline — ship faster.',
-    primaryCta: { label: 'Explore Features', href: '#features' },
-    secondaryCta: { label: 'Contact Us', href: '#contact' },
+    primaryCta: { label: 'Download for Windows', href: '#download' },
+    secondaryCta: { label: 'Explore Features', href: '#features' },
+  },
+  download: {
+    title: 'Download JS Compiler',
+    subtitle: 'Free desktop app for Windows. Auto-updates when a new release is published.',
+    version: '1.0.0',
+    platforms: [
+      {
+        id: 'windows',
+        name: 'Windows',
+        arch: 'x64',
+        file: 'JS Compiler-Setup-1.0.0.exe',
+        label: 'Download for Windows',
+        href: 'https://github.com/vishvajeet2012/JavaScript-compiler/releases/latest/download/JS%20Compiler-Setup-1.0.0.exe',
+        note: 'NSIS installer · Auto-update enabled',
+      },
+      {
+        id: 'releases',
+        name: 'All releases',
+        arch: '',
+        file: '',
+        label: 'GitHub Releases',
+        href: 'https://github.com/vishvajeet2012/JavaScript-compiler/releases',
+        note: 'Windows installer + Linux packages',
+      },
+    ],
+    changelog: [
+      {
+        version: '1.0.0',
+        date: '2026-07-13',
+        items: [
+          'Desktop JavaScript compiler with Monaco editor',
+          'Folders, templates, local SQLite storage',
+          'Pro activation with device limits & expiry',
+          'Silent auto-update (Windows) via GitHub Releases',
+          'Background usage analytics & crash reports',
+          'System protection / remote kill-switch',
+        ],
+      },
+    ],
+    requirements: [
+      'Windows 10/11 (64-bit)',
+      'Internet only for activation & updates',
+      'Works fully offline for coding',
+    ],
   },
   features: [
     {

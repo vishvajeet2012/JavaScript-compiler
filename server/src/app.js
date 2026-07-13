@@ -15,17 +15,20 @@ const ApiError = require('./utils/ApiError');
  */
 const app = express();
 
+// Vercel / reverse-proxy: correct client IP for rate limiting
+app.set('trust proxy', 1);
+
 // --------------- Security Middleware ---------------
 // Helmet: sets various HTTP headers for security
 app.use(helmet());
 
-// CORS: allow requests from the Next.js frontend
+// CORS: Next.js (jsplay-kappa) + admin (Vite) + local
 app.use(
   cors({
     origin: config.corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key'],
   })
 );
 

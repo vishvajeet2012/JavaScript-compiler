@@ -4,6 +4,18 @@ const fs = require("fs");
 const { Worker } = require("worker_threads");
 const db = require("./db");
 const activation = require("./activation");
+const { setupAutoUpdater } = require("./updater");
+const telemetry = require("./telemetry");
+const protection = require("./protection");
+const { startCrashReporter } = require("./crash-reporter");
+
+// Windows toast / jump-list identity
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.vishvajeet.javascript-compiler");
+}
+
+// System-level: only one app instance
+const IS_PRIMARY_INSTANCE = protection.enforceSingleInstance();
 
 let mainWindow = null;
 let activeWorker = null;
@@ -37,10 +49,14 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "../src/index.html"));
   mainWindow.setMenuBarVisibility(false);
+  mainWindow.setTitle(`JS Compiler v${app.getVersion()}`);
 
   if (process.argv.includes("--dev")) {
     mainWindow.webContents.openDevTools();
   }
+
+  protection.onWindowCreated(mainWindow);
+  setupAutoUpdater(mainWindow);
 }
 
 function killActiveWorker() {
@@ -144,9 +160,18 @@ function runCodeInWorker(code) {
 }
 
 app.whenReady().then(async () => {
+  if (!IS_PRIMARY_INSTANCE) return;
+
   db.initDb();
+  // Silent crash reports (offline queue → server)
+  startCrashReporter();
+  // Silent usage tracking — offline queue, sync when online (no UI)
+  telemetry.startSession();
   await activation.verifyActivation();
   createWindow();
+
+  // System software protection (kill-switch, license, single-instance helpers)
+  protection.startProtection({ getWindow: () => mainWindow });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -158,13 +183,30 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
+// Best-effort flush of offline usage when quitting
+let isQuitting = false;
+app.on("before-quit", (e) => {
+  if (isQuitting) return;
+  e.preventDefault();
+  isQuitting = true;
+  killActiveWorker();
+  telemetry
+    .flushOnQuit()
+    .catch(() => {})
+    .finally(() => app.exit(0));
+});
+
 // ── Code Execution ────────────────────────────────────────
 
-ipcMain.handle("run-code", async (_, code) => runCodeInWorker(code));
+ipcMain.handle("run-code", async (_, code) => {
+  telemetry.trackEvent("run_code", { codeLength: String(code || "").length });
+  return runCodeInWorker(code);
+});
 
 ipcMain.handle("stop-code", () => {
   const wasRunning = !!activeWorker;
   killActiveWorker();
+  if (wasRunning) telemetry.trackEvent("stop_code", {});
   return {
     stopped: wasRunning,
     logs: wasRunning
@@ -186,16 +228,23 @@ ipcMain.handle("save-snippet", (_, data) => {
     if (!check.allowed) return { error: check.message };
   }
   const id = db.saveSnippet(data);
+  telemetry.trackEvent("save_snippet", {
+    isNew: !data.id,
+    titleLength: String(data.title || "").length,
+    codeLength: String(data.code || "").length,
+  });
   return { id };
 });
 
 ipcMain.handle("delete-snippet", (_, id) => {
   db.deleteSnippet(id);
+  telemetry.trackEvent("delete_snippet", { id });
   return { ok: true };
 });
 
 ipcMain.handle("move-snippet", (_, { id, folderId }) => {
   db.moveSnippet(id, folderId);
+  telemetry.trackEvent("move_snippet", { id });
   return { ok: true };
 });
 
@@ -205,6 +254,7 @@ ipcMain.handle("get-folders", () => db.getFolders());
 
 ipcMain.handle("create-folder", (_, { name, parentId }) => {
   const id = db.createFolder({ name, parentId });
+  telemetry.trackEvent("create_folder", { name });
   return { id };
 });
 
@@ -215,6 +265,7 @@ ipcMain.handle("rename-folder", (_, { id, name }) => {
 
 ipcMain.handle("delete-folder", (_, id) => {
   db.deleteFolder(id);
+  telemetry.trackEvent("delete_folder", { id });
   return { ok: true };
 });
 
@@ -230,7 +281,17 @@ ipcMain.handle("move-folder", (_, { id, parentId }) => {
 // ── Activation ──────────────────────────────────────────
 
 ipcMain.handle("get-pro-status", () => activation.getProStatus());
-ipcMain.handle("activate", async (_, key) => activation.activate(key));
+ipcMain.handle("activate", async (_, key) => {
+  const result = await activation.activate(key);
+  telemetry.trackEvent("activate", {
+    success: !!result.success,
+    // never store full key in event payload beyond short prefix
+    keyPrefix: String(key || "").slice(0, 4),
+  });
+  // try push immediately after activation (internet is available)
+  telemetry.flushToServer().catch(() => {});
+  return result;
+});
 ipcMain.handle("verify-activation", async () => activation.verifyActivation());
 ipcMain.handle("get-machine-id", () => activation.getMachineId());
 ipcMain.handle("get-snippet-limit", () => ({

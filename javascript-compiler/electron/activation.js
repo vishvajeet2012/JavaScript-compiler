@@ -2,7 +2,8 @@ const { machineIdSync } = require("node-machine-id");
 const crypto = require("crypto");
 const { getActivation, saveActivation, clearActivation } = require("./db");
 
-const DEFAULT_SERVER = "http://localhost:5050";
+// Main Express server (MongoDB-backed activation + admin keys)
+const DEFAULT_SERVER = "http://localhost:5000";
 const FREE_SNIPPET_LIMIT = 5;
 
 function getMachineId() {
@@ -35,7 +36,13 @@ async function validateOnline(key, machineId) {
     }
 
     const data = await res.json();
-    return { success: true, token: data.token, message: data.message };
+    return {
+      success: true,
+      token: data.token,
+      message: data.message,
+      expiresAt: data.expiresAt || null,
+      planName: data.planName || null,
+    };
   } catch (err) {
     clearTimeout(timeout);
     if (err.name === "AbortError") {
@@ -58,7 +65,17 @@ async function activate(key) {
     token: result.token,
   });
 
-  return { success: true, message: "Pro mode activated!", isPro: true };
+  // Cache expiry for offline license enforcement
+  const { setSetting } = require("./db");
+  if (result.expiresAt) setSetting("license_expires_at", String(result.expiresAt));
+  else setSetting("license_expires_at", "");
+
+  return {
+    success: true,
+    message: "Pro mode activated!",
+    isPro: true,
+    expiresAt: result.expiresAt || null,
+  };
 }
 
 async function verifyActivation() {
@@ -96,7 +113,9 @@ async function verifyActivation() {
         machineId,
         token: data.token || activation.token,
       });
-      return { isPro: true };
+      const { setSetting } = require("./db");
+      if (data.expiresAt) setSetting("license_expires_at", String(data.expiresAt));
+      return { isPro: true, expiresAt: data.expiresAt || null };
     }
 
     clearActivation();

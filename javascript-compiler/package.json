@@ -5,15 +5,25 @@
   "main": "electron/main.js",
   "author": "vishvajeet shukla <vishvajeet2012>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vishvajeet2012/JavaScript-compiler.git"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "server": "node activation-server/server.js",
-    "build:linux": "electron-builder --linux deb",
-    "build": "electron-builder --linux deb"
+    "build": "electron-builder --win --linux",
+    "build:win": "electron-builder --win",
+    "build:win:signed": "electron-builder --win --config.win.signAndEditExecutable=true",
+    "build:linux": "electron-builder --linux",
+    "publish": "electron-builder --win --linux --publish always",
+    "publish:win": "electron-builder --win --publish always",
+    "release": "electron-builder --win --publish always"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
+    "electron-updater": "^6.6.2",
     "node-machine-id": "^1.1.12"
   },
   "devDependencies": {
@@ -35,8 +45,44 @@
       "package.json"
     ],
     "asar": true,
+    "generateUpdatesFilesForAllChannels": true,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "vishvajeet2012",
+        "repo": "JavaScript-compiler",
+        "releaseType": "release"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "publisherName": ["vishvajeet shukla"],
+      "signingHashAlgorithms": ["sha256"],
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "timeStampServer": "http://timestamp.digicert.com",
+      "signAndEditExecutable": true,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "JS Compiler",
+      "uninstallDisplayName": "JS Compiler",
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true
+    },
     "linux": {
       "target": [
+        "AppImage",
         "deb"
       ],
       "category": "Development",
@@ -48,7 +94,8 @@
         "Comment": "Desktop JavaScript Compiler",
         "Categories": "Development;IDE;TextEditor;",
         "StartupWMClass": "js-compiler"
-      }
+      },
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "deb": {
       "packageName": "js-compiler",

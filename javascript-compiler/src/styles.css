@@ -88,6 +88,93 @@ body {
 .badge-free { background: #1e1e2e; color: var(--muted); }
 .badge-pro { background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed44; }
 
+.version-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: #1a1a24;
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+  -webkit-app-region: no-drag;
+}
+
+.update-status {
+  font-size: 0.7rem;
+  color: var(--accent);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.update-status.hidden { display: none; }
+.update-status.update-ok { color: var(--green); }
+.update-status.update-warn { color: var(--yellow); }
+.update-status.update-err { color: var(--red); }
+
+.setting-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.75rem 0;
+}
+
+.setting-row-static {
+  cursor: default;
+}
+
+.setting-row-static strong {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.update-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: right;
+  max-width: 220px;
+}
+
+.update-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.update-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.update-progress-wrap.hidden { display: none; }
+
+.update-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #1e1e2e;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), #06b6d4);
+  border-radius: 99px;
+  transition: width 0.2s ease;
+}
+
+.update-progress-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
 /* Layout */
 .layout {
   display: flex;

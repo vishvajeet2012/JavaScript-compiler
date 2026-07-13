@@ -1,0 +1,181 @@
+.section {
+  padding: 4.5rem 1.25rem;
+  position: relative;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.eyebrow {
+  color: #a78bfa;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+}
+
+.title {
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.65rem;
+}
+
+.subtitle {
+  color: #9ca3af;
+  max-width: 540px;
+  margin: 0 auto 1rem;
+  line-height: 1.6;
+}
+
+.versionBadge {
+  display: inline-flex;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  color: #c4b5fd;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.cards {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(145deg, rgba(26, 26, 40, 0.95), rgba(12, 12, 20, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 1.35rem 1.4rem;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(124, 58, 237, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.cardTop {
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.osIcon {
+  font-size: 1.6rem;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.cardTop h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.meta {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  margin: 0.15rem 0 0;
+}
+
+.downloadBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.1rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.note {
+  margin: 0.75rem 0 0;
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.side {
+  display: grid;
+  gap: 1rem;
+}
+
+.panel {
+  background: rgba(18, 18, 28, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 1.2rem 1.25rem;
+}
+
+.panel h3 {
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem;
+}
+
+.panel ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #c4c4d4;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.panel li + li {
+  margin-top: 0.35rem;
+}
+
+.changeBlock + .changeBlock {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.changeHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.88rem;
+}
+
+.changeHead span {
+  color: #9ca3af;
+}
+
+.muted {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
