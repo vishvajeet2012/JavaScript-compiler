@@ -48,9 +48,10 @@ const config = {
   },
 
   db: {
+    // Prefer MONGODB_URI env. Default uses standard host list (works when SRV/DNS is blocked).
     uri:
       process.env.MONGODB_URI ||
-      'mongodb+srv://vishvajeet4711_db_user:QHqqzNpZEywm7LU6@cluster0.kqih8fi.mongodb.net/js-compiler?appName=Cluster0',
+      'mongodb://vishvajeet4711_db_user:QHqqzNpZEywm7LU6@ac-atfr6au-shard-00-00.kqih8fi.mongodb.net:27017,ac-atfr6au-shard-00-01.kqih8fi.mongodb.net:27017,ac-atfr6au-shard-00-02.kqih8fi.mongodb.net:27017/js-compiler?ssl=true&replicaSet=atlas-zggmk3-shard-0&authSource=admin&retryWrites=true&w=majority&appName=Cluster0',
   },
 
   adminSecret: process.env.ADMIN_SECRET || 'admin123',

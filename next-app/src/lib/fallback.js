@@ -15,7 +15,7 @@ export const FALLBACK_LANDING = {
     subtitle:
       'A fast desktop JavaScript compiler with folders, templates, local DB, and Pro activation. Code offline — ship faster.',
     primaryCta: { label: 'Download for Windows', href: '#download' },
-    secondaryCta: { label: 'Explore Features', href: '#features' },
+    secondaryCta: { label: 'Buy Pro key', href: '#pricing' },
   },
   download: {
     title: 'Download JS Compiler',

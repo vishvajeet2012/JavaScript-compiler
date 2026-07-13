@@ -2,6 +2,7 @@ import styles from './page.module.css';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import Download from '@/components/Download';
+import Pricing from '@/components/Pricing';
 import Features from '@/components/Features';
 import Stats from '@/components/Stats';
 import About from '@/components/About';
@@ -50,6 +51,8 @@ export default async function Home() {
         <Hero data={landing.hero} />
         <hr className={styles.divider} />
         <Download data={landing.download} />
+        <hr className={styles.divider} />
+        <Pricing />
         <hr className={styles.divider} />
         <Features features={landing.features} />
         <hr className={styles.divider} />

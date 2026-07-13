@@ -73,4 +73,25 @@ export async function submitContact(payload) {
   });
 }
 
+/** GET /api/v1/plans — public pricing */
+export async function getPlans() {
+  return apiFetch('/plans');
+}
+
+/**
+ * POST /api/v1/purchase — buy license key (demo checkout)
+ * @param {{ planId: string, name: string, email: string }} payload
+ */
+export async function purchaseKey(payload) {
+  return apiFetch('/purchase', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** GET /api/v1/orders/:orderId */
+export async function getOrder(orderId) {
+  return apiFetch(`/orders/${encodeURIComponent(orderId)}`);
+}
+
 export { API_BASE, API_PREFIX };
