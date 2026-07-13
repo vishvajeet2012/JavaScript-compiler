@@ -1,0 +1,45 @@
+/* ========== Footer ========== */
+.footer {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-8) var(--space-6);
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.copy {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+/* --- Social Links --- */
+.socials {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.socialLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.socialLink:hover {
+  color: var(--color-text-primary);
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 560px) {
+  .container {
+    flex-direction: column;
+    gap: var(--space-4);
+    text-align: center;
+  }
+}

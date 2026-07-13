@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer } = require("electron");
+
+contextBridge.exposeInMainWorld("compiler", {
+  runCode: (code) => ipcRenderer.invoke("run-code", code),
+  stopCode: () => ipcRenderer.invoke("stop-code"),
+  isRunning: () => ipcRenderer.invoke("is-running"),
+  getSnippets: () => ipcRenderer.invoke("get-snippets"),
+  saveSnippet: (data) => ipcRenderer.invoke("save-snippet", data),
+  deleteSnippet: (id) => ipcRenderer.invoke("delete-snippet", id),
+  moveSnippet: (id, folderId) => ipcRenderer.invoke("move-snippet", { id, folderId }),
+  getFolders: () => ipcRenderer.invoke("get-folders"),
+  createFolder: (name, parentId) => ipcRenderer.invoke("create-folder", { name, parentId }),
+  renameFolder: (id, name) => ipcRenderer.invoke("rename-folder", { id, name }),
+  deleteFolder: (id) => ipcRenderer.invoke("delete-folder", id),
+  moveFolder: (id, parentId) => ipcRenderer.invoke("move-folder", { id, parentId }),
+  getProStatus: () => ipcRenderer.invoke("get-pro-status"),
+  activate: (key) => ipcRenderer.invoke("activate", key),
+  verifyActivation: () => ipcRenderer.invoke("verify-activation"),
+  getMachineId: () => ipcRenderer.invoke("get-machine-id"),
+  getSnippetLimit: () => ipcRenderer.invoke("get-snippet-limit"),
+  setActivationServer: (url) => ipcRenderer.invoke("set-activation-server", url),
+  getSettings: () => ipcRenderer.invoke("get-settings"),
+  saveSettings: (s) => ipcRenderer.invoke("save-settings", s),
+  saveDraft: (data) => ipcRenderer.invoke("save-draft", data),
+  getDraft: () => ipcRenderer.invoke("get-draft"),
+  clearDraft: () => ipcRenderer.invoke("clear-draft"),
+  exportFile: (data) => ipcRenderer.invoke("export-file", data),
+});

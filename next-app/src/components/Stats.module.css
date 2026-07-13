@@ -1,0 +1,88 @@
+/* ========== Stats Section ========== */
+.section {
+  padding: var(--space-16) var(--space-6);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+/* --- Individual Stat --- */
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1;
+  padding: var(--space-4) var(--space-6);
+  position: relative;
+}
+
+/* Divider line between stats */
+.stat + .stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 48px;
+  background: var(--color-border);
+}
+
+.value {
+  font-size: var(--text-5xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
+  line-height: 1;
+  margin-bottom: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 768px) {
+  .container {
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    flex: 0 0 50%;
+    padding: var(--space-6) var(--space-4);
+  }
+
+  /* Reset dividers for 2-column layout */
+  .stat + .stat::before {
+    display: none;
+  }
+
+  .stat:nth-child(even) {
+    border-left: 1px solid var(--color-border);
+  }
+
+  .stat:nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .value {
+    font-size: var(--text-4xl);
+  }
+}
+
+@media (max-width: 400px) {
+  .value {
+    font-size: var(--text-3xl);
+  }
+}

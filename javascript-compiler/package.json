@@ -1,0 +1,64 @@
+{
+  "name": "javascript-compiler",
+  "version": "1.0.0",
+  "description": "Desktop JavaScript Compiler with local DB and Pro activation",
+  "main": "electron/main.js",
+  "author": "vishvajeet shukla <vishvajeet2012>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "server": "node activation-server/server.js",
+    "build:linux": "electron-builder --linux deb",
+    "build": "electron-builder --linux deb"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "node-machine-id": "^1.1.12"
+  },
+  "devDependencies": {
+    "electron": "^35.0.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.vishvajeet.javascript-compiler",
+    "productName": "JS Compiler",
+    "copyright": "Copyright © 2026 vishvajeet shukla",
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "assets/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "linux": {
+      "target": [
+        "deb"
+      ],
+      "category": "Development",
+      "icon": "assets/icons",
+      "synopsis": "Desktop JavaScript Compiler",
+      "description": "Write, run and save JavaScript snippets with folders, templates, and Pro activation.",
+      "desktop": {
+        "Name": "JS Compiler",
+        "Comment": "Desktop JavaScript Compiler",
+        "Categories": "Development;IDE;TextEditor;",
+        "StartupWMClass": "js-compiler"
+      }
+    },
+    "deb": {
+      "packageName": "js-compiler",
+      "depends": [
+        "libnotify4",
+        "libxtst6",
+        "libnss3",
+        "libsecret-1-0",
+        "libgtk-3-0"
+      ]
+    }
+  }
+}
