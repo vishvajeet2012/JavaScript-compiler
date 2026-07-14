@@ -1,16 +1,20 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "Production-level Express.js backend for Next.js landing page",
+  "description": "JS Compiler Express API — Vercel serverless + local",
   "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node scripts/seed-and-generate-keys.js",
+    "vercel-build": "echo 'No build step — serverless api/index.js'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["express", "vercel", "js-compiler"],
+  "author": "vishvajeetshukla.in",
   "license": "ISC",
   "dependencies": {
     "compression": "^1.8.1",

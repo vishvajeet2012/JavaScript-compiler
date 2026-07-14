@@ -15,6 +15,24 @@ function getServerUrl() {
   return getSetting("activation_server", DEFAULT_SERVER);
 }
 
+function cacheLicenseMeta(result) {
+  const { setSetting } = require("./db");
+  if (result.expiresAt) setSetting("license_expires_at", String(result.expiresAt));
+  else setSetting("license_expires_at", "");
+  if (result.planName) setSetting("license_plan_name", String(result.planName));
+  if (result.planCode) setSetting("license_plan_code", String(result.planCode));
+  if (result.maxDevices != null) setSetting("license_max_devices", String(result.maxDevices));
+}
+
+function isLicenseExpiredLocally() {
+  const { getSetting } = require("./db");
+  const raw = getSetting("license_expires_at", "");
+  if (!raw) return false;
+  const t = new Date(raw).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() > t;
+}
+
 async function validateOnline(key, machineId) {
   const server = getServerUrl();
   const controller = new AbortController();
@@ -42,6 +60,10 @@ async function validateOnline(key, machineId) {
       message: data.message,
       expiresAt: data.expiresAt || null,
       planName: data.planName || null,
+      planCode: data.planCode || null,
+      maxDevices: data.maxDevices || null,
+      devicesUsed: data.devicesUsed || null,
+      oneTime: data.oneTime || false,
     };
   } catch (err) {
     clearTimeout(timeout);
@@ -65,22 +87,27 @@ async function activate(key) {
     token: result.token,
   });
 
-  // Cache expiry for offline license enforcement
-  const { setSetting } = require("./db");
-  if (result.expiresAt) setSetting("license_expires_at", String(result.expiresAt));
-  else setSetting("license_expires_at", "");
+  cacheLicenseMeta(result);
 
   return {
     success: true,
-    message: "Pro mode activated!",
+    message: result.message || "Pro mode activated!",
     isPro: true,
     expiresAt: result.expiresAt || null,
+    planName: result.planName || null,
+    maxDevices: result.maxDevices || null,
   };
 }
 
 async function verifyActivation() {
   const activation = getActivation();
   if (!activation?.is_pro) return { isPro: false };
+
+  // Local expiry check first
+  if (isLicenseExpiredLocally()) {
+    clearActivation();
+    return { isPro: false, message: "License expired" };
+  }
 
   const machineId = getMachineId();
   if (activation.machine_id !== machineId) {
@@ -113,40 +140,72 @@ async function verifyActivation() {
         machineId,
         token: data.token || activation.token,
       });
-      const { setSetting } = require("./db");
-      if (data.expiresAt) setSetting("license_expires_at", String(data.expiresAt));
-      return { isPro: true, expiresAt: data.expiresAt || null };
+      cacheLicenseMeta(data);
+      return {
+        isPro: true,
+        expiresAt: data.expiresAt || null,
+        planName: data.planName || null,
+        maxDevices: data.maxDevices || null,
+      };
     }
 
     clearActivation();
     return { isPro: false, message: "Activation no longer valid" };
   } catch {
-    // Offline — allow cached pro for 7 days
+    // Offline — allow cached pro for 7 days if not expired by license date
+    if (isLicenseExpiredLocally()) {
+      clearActivation();
+      return { isPro: false, message: "License expired" };
+    }
     const lastVerified = activation.last_verified
       ? new Date(activation.last_verified)
       : null;
     if (lastVerified) {
       const daysSince = (Date.now() - lastVerified.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSince < 7) return { isPro: true, offline: true };
+      if (daysSince < 7) return { isPro: true, offline: true, ...getCachedLicenseMeta() };
     }
-    return { isPro: activation.is_pro === 1, offline: true };
+    return { isPro: activation.is_pro === 1, offline: true, ...getCachedLicenseMeta() };
   }
+}
+
+function getCachedLicenseMeta() {
+  const { getSetting } = require("./db");
+  const expiresAt = getSetting("license_expires_at", "") || null;
+  const planName = getSetting("license_plan_name", "") || null;
+  const planCode = getSetting("license_plan_code", "") || null;
+  const maxDevicesRaw = getSetting("license_max_devices", "");
+  const maxDevices = maxDevicesRaw ? parseInt(maxDevicesRaw, 10) : null;
+  return {
+    expiresAt: expiresAt || null,
+    planName,
+    planCode,
+    maxDevices: Number.isFinite(maxDevices) ? maxDevices : null,
+  };
 }
 
 function getProStatus() {
   const activation = getActivation();
+  const isPro = activation?.is_pro === 1 && !isLicenseExpiredLocally();
+  if (activation?.is_pro === 1 && !isPro) {
+    clearActivation();
+  }
+  const meta = getCachedLicenseMeta();
   return {
-    isPro: activation?.is_pro === 1,
+    isPro,
     activatedAt: activation?.activated_at,
     key: activation?.activation_key
       ? activation.activation_key.replace(/(.{4})(?=.{4})/g, "$1-").slice(0, 19) + "****"
       : null,
+    ...meta,
   };
 }
 
+function isProActive() {
+  return getProStatus().isPro;
+}
+
 function canSaveSnippet(currentCount) {
-  const activation = getActivation();
-  if (activation?.is_pro === 1) return { allowed: true };
+  if (isProActive()) return { allowed: true };
   if (currentCount >= FREE_SNIPPET_LIMIT) {
     return {
       allowed: false,
@@ -156,11 +215,30 @@ function canSaveSnippet(currentCount) {
   return { allowed: true };
 }
 
+function canExport() {
+  if (isProActive()) return { allowed: true };
+  return {
+    allowed: false,
+    message: "Export is a Pro feature. Activate Pro to export files.",
+  };
+}
+
+function canUseVersionHistory() {
+  if (isProActive()) return { allowed: true };
+  return {
+    allowed: false,
+    message: "Version history is Pro only. Activate Pro to restore snapshots.",
+  };
+}
+
 module.exports = {
   activate,
   verifyActivation,
   getProStatus,
+  isProActive,
   canSaveSnippet,
+  canExport,
+  canUseVersionHistory,
   getMachineId,
   FREE_SNIPPET_LIMIT,
 };

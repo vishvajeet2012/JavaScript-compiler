@@ -1,7 +1,9 @@
 let editor = null;
 let activeSnippetId = null;
 let activeFolderId = null;
+let activeLanguage = "javascript";
 let isPro = false;
+let proMeta = {};
 let snippetLimit = 5;
 let isRunning = false;
 let isDirty = false;
@@ -9,12 +11,27 @@ let autoSaveTimer = null;
 let settings = {};
 let folders = [];
 let snippets = [];
+let templateFilter = "all";
 const openFolders = new Set();
 
 const ICONS = {
   js: "assets/icons/js.svg",
   folder: "assets/icons/folder-default.svg",
   folderJs: "assets/icons/folder-javascript.svg",
+};
+
+const LANG_EXT = {
+  javascript: "js",
+  typescript: "ts",
+  html: "html",
+  node: "js",
+};
+
+const MONACO_LANG = {
+  javascript: "javascript",
+  typescript: "typescript",
+  html: "html",
+  node: "javascript",
 };
 
 function iconImg(src, alt = "") {
@@ -27,42 +44,74 @@ const TEMPLATES = [
   {
     name: "Hello World",
     desc: "Basic console output",
+    language: "javascript",
     code: `// Hello World\nconsole.log('Hello, World!');\nconsole.log('Welcome to JS Compiler');`,
   },
   {
     name: "Variables & Types",
     desc: "let, const, typeof",
+    language: "javascript",
     code: `let name = "Vishu";\nconst age = 25;\nlet items = [1, 2, 3];\n\nconsole.log(name, age);\nconsole.log(typeof name, typeof items);`,
   },
   {
     name: "Functions",
     desc: "Arrow & regular functions",
+    language: "javascript",
     code: `function greet(name) {\n  return \`Hello, \${name}!\`;\n}\n\nconst add = (a, b) => a + b;\n\nconsole.log(greet("Dev"));\nconsole.log(add(10, 20));`,
   },
   {
     name: "Array Methods",
     desc: "map, filter, reduce",
+    language: "javascript",
     code: `const nums = [1, 2, 3, 4, 5];\n\nconst doubled = nums.map(n => n * 2);\nconst evens = nums.filter(n => n % 2 === 0);\nconst sum = nums.reduce((a, b) => a + b, 0);\n\nconsole.log("Doubled:", doubled);\nconsole.log("Evens:", evens);\nconsole.log("Sum:", sum);`,
   },
   {
     name: "Async / Await",
     desc: "Promise with delay",
+    language: "javascript",
     code: `function delay(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function main() {\n  console.log("Start...");\n  await delay(1000);\n  console.log("Done after 1 second!");\n}\n\nmain();`,
-  },
-  {
-    name: "Fetch API",
-    desc: "HTTP request example",
-    code: `// Simulated fetch (runs in sandbox)\nasync function fetchData() {\n  console.log("Fetching data...");\n  // Replace with real fetch when needed:\n  // const res = await fetch('https://api.example.com');\n  const data = { id: 1, title: "Sample" };\n  console.log("Response:", JSON.stringify(data, null, 2));\n}\n\nfetchData();`,
   },
   {
     name: "Class OOP",
     desc: "ES6 class example",
+    language: "javascript",
     code: `class Animal {\n  constructor(name) {\n    this.name = name;\n  }\n  speak() {\n    return \`\${this.name} makes a sound\`;\n  }\n}\n\nclass Dog extends Animal {\n  speak() { return \`\${this.name} barks!\`; }\n}\n\nconst d = new Dog("Rex");\nconsole.log(d.speak());`,
   },
   {
-    name: "DOM Ready",
-    desc: "HTML interaction pattern",
-    code: `// DOM pattern (for reference)\nconst createButton = () => {\n  const btn = { text: "Click me", clicked: false };\n  const handleClick = () => {\n    btn.clicked = true;\n    console.log("Button clicked!");\n  };\n  return { btn, handleClick };\n};\n\nconst { handleClick } = createButton();\nhandleClick();`,
+    name: "TS Interfaces",
+    desc: "Types + interface (stripped at run)",
+    language: "typescript",
+    code: `interface User {\n  id: number;\n  name: string;\n  active?: boolean;\n}\n\nfunction greet(user: User): string {\n  return \`Hello, \${user.name} (#\${user.id})\`;\n}\n\nconst me: User = { id: 1, name: "Student", active: true };\nconsole.log(greet(me));\nconsole.log("Active:", me.active);`,
+  },
+  {
+    name: "TS Generics",
+    desc: "Generic helper function",
+    language: "typescript",
+    code: `function first<T>(arr: T[]): T | undefined {\n  return arr[0];\n}\n\nconst nums: number[] = [10, 20, 30];\nconst names: string[] = ["Asha", "Ravi"];\n\nconsole.log(first(nums));\nconsole.log(first(names));`,
+  },
+  {
+    name: "HTML + Script",
+    desc: "Markup with runnable script tags",
+    language: "html",
+    code: `<!DOCTYPE html>\n<html>\n<head><title>Demo</title></head>\n<body>\n  <h1>Hello HTML + JS</h1>\n  <p id="out">…</p>\n  <script>\n    const out = { text: "Rendered from <script>" };\n    console.log(out.text);\n    console.log("2 + 2 =", 2 + 2);\n  </script>\n</body>\n</html>`,
+  },
+  {
+    name: "HTML Counter pattern",
+    desc: "Logic pattern for UI counters",
+    language: "html",
+    code: `<div id="app">\n  <button id="btn">Count</button>\n  <span id="n">0</span>\n</div>\n<script>\n  let n = 0;\n  function click() {\n    n += 1;\n    console.log("Count:", n);\n  }\n  click(); click(); click();\n</script>`,
+  },
+  {
+    name: "Node path / process",
+    desc: "Node-style sandbox APIs",
+    language: "node",
+    code: `const path = require('path');\nconst os = require('os');\n\nconsole.log('platform:', process.platform);\nconsole.log('cwd:', process.cwd());\nconsole.log('join:', path.join('src', 'app.js'));\nconsole.log('home:', os.homedir());\nconsole.log('argv:', process.argv);`,
+  },
+  {
+    name: "Node module.exports",
+    desc: "CommonJS module pattern",
+    language: "node",
+    code: `function add(a, b) {\n  return a + b;\n}\n\nmodule.exports = { add };\n\nconst lib = module.exports;\nconsole.log('add(3,4) =', lib.add(3, 4));\nconsole.log('exports keys:', Object.keys(exports));`,
   },
 ];
 
@@ -103,6 +152,38 @@ async function init() {
   await initVersionAndUpdates();
   document.getElementById("machine-id").textContent =
     (await window.compiler.getMachineId()).slice(0, 16) + "...";
+  setLanguageUI(activeLanguage);
+}
+
+function setLanguageUI(lang) {
+  activeLanguage = lang || "javascript";
+  const sel = document.getElementById("file-language");
+  if (sel) sel.value = activeLanguage;
+  if (editor && monaco?.editor) {
+    const model = editor.getModel();
+    if (model) {
+      monaco.editor.setModelLanguage(model, MONACO_LANG[activeLanguage] || "javascript");
+    }
+  }
+}
+
+function currentLanguage() {
+  const sel = document.getElementById("file-language");
+  return sel?.value || activeLanguage || "javascript";
+}
+
+function defaultFileName(lang) {
+  const ext = LANG_EXT[lang] || "js";
+  return `untitled.${ext}`;
+}
+
+function formatExpiry(expiresAt) {
+  if (!expiresAt) return "Lifetime";
+  try {
+    return new Date(expiresAt).toLocaleString();
+  } catch {
+    return String(expiresAt);
+  }
 }
 
 // ── Version + Auto-update ─────────────────────────────────
@@ -292,7 +373,8 @@ async function performAutoSave() {
   if (!isDirty || !editor) return;
 
   setAutoSaveStatus("saving");
-  const title = document.getElementById("file-name").value.trim() || "untitled.js";
+  const lang = currentLanguage();
+  const title = document.getElementById("file-name").value.trim() || defaultFileName(lang);
   const code = editor.getValue();
 
   if (activeSnippetId) {
@@ -300,6 +382,7 @@ async function performAutoSave() {
       id: activeSnippetId,
       title,
       code,
+      language: lang,
       folderId: activeFolderId,
     });
     if (!result.error) {
@@ -308,7 +391,7 @@ async function performAutoSave() {
       await refreshWorkspace();
     }
   } else {
-    await window.compiler.saveDraft({ title, code, folderId: activeFolderId });
+    await window.compiler.saveDraft({ title, code, folderId: activeFolderId, language: lang });
     isDirty = false;
     setAutoSaveStatus("saved");
   }
@@ -336,6 +419,7 @@ async function restoreDraftOrDefault() {
     editor.setValue(draft.code);
     document.getElementById("file-name").value = draft.title;
     activeFolderId = draft.folderId;
+    setLanguageUI(draft.language || "javascript");
     isDirty = false;
     showToast("Draft restored", "success");
   }
@@ -345,15 +429,22 @@ async function restoreDraftOrDefault() {
 
 function renderTemplates() {
   const list = document.getElementById("template-list");
+  if (!list) return;
   list.innerHTML = "";
-  TEMPLATES.forEach((t) => {
+  const items = TEMPLATES.filter(
+    (t) => templateFilter === "all" || t.language === templateFilter
+  );
+  items.forEach((t) => {
     const card = document.createElement("button");
     card.className = "template-card";
-    card.innerHTML = `<h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p>`;
+    card.innerHTML = `<h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p><span class="tpl-lang">${esc(t.language)}</span>`;
     card.addEventListener("click", () => {
       if (isDirty && !confirm("Replace current code with template?")) return;
+      setLanguageUI(t.language || "javascript");
       editor.setValue(t.code);
-      document.getElementById("file-name").value = t.name.toLowerCase().replace(/\s+/g, "-") + ".js";
+      const ext = LANG_EXT[t.language] || "js";
+      document.getElementById("file-name").value =
+        t.name.toLowerCase().replace(/\s+/g, "-") + `.${ext}`;
       activeSnippetId = null;
       isDirty = true;
       closeModal("modal-templates");
@@ -361,17 +452,93 @@ function renderTemplates() {
     });
     list.appendChild(card);
   });
+  if (!items.length) {
+    list.innerHTML = '<div class="history-empty">No templates in this filter</div>';
+  }
 }
 
-// ── Export ────────────────────────────────────────────────
+// ── Export (Pro) ──────────────────────────────────────────
 
 async function exportCurrentFile() {
-  const title = document.getElementById("file-name").value.trim() || "untitled.js";
+  if (!isPro) {
+    showToast("Export is Pro only — Activate Pro to unlock", "error");
+    openActivateModal();
+    return;
+  }
+  const lang = currentLanguage();
+  const title = document.getElementById("file-name").value.trim() || defaultFileName(lang);
   const code = editor.getValue();
-  const result = await window.compiler.exportFile({ content: code, defaultName: title });
+  const result = await window.compiler.exportFile({
+    content: code,
+    defaultName: title,
+    language: lang,
+  });
 
   if (result.canceled) return;
+  if (result.error) {
+    showToast(result.message || result.error, "error");
+    if (result.proRequired) openActivateModal();
+    return;
+  }
   if (result.ok) showToast(`Exported: ${result.path}`, "success");
+}
+
+// ── Version history (Pro) ─────────────────────────────────
+
+async function openHistoryModal() {
+  if (!isPro) {
+    showToast("Version history is Pro only", "error");
+    openActivateModal();
+    return;
+  }
+  if (!activeSnippetId) {
+    showToast("Save the file first to use version history", "error");
+    return;
+  }
+  const list = document.getElementById("history-list");
+  const desc = document.getElementById("history-desc");
+  list.innerHTML = '<div class="history-empty">Loading…</div>';
+  openModal("modal-history");
+
+  const versions = await window.compiler.getVersions(activeSnippetId);
+  if (!versions?.length) {
+    list.innerHTML =
+      '<div class="history-empty">No snapshots yet. Save changes to create history.</div>';
+    desc.textContent = "Snapshots appear when you edit & save this file.";
+    return;
+  }
+
+  desc.textContent = `${versions.length} snapshot(s) · restore replaces current code (current is saved first)`;
+  list.innerHTML = "";
+  versions.forEach((v) => {
+    const row = document.createElement("div");
+    row.className = "history-item";
+    const when = v.created_at
+      ? new Date(String(v.created_at).includes("T") ? v.created_at : v.created_at.replace(" ", "T")).toLocaleString()
+      : "—";
+    row.innerHTML = `
+      <div>
+        <div class="history-meta"><strong>${esc(when)}</strong> · ${esc(v.language || "js")} · ${v.code_length || 0} chars</div>
+        <div class="history-preview">${esc(v.preview || "")}</div>
+      </div>
+      <button type="button" class="btn-secondary btn-sm" data-id="${v.id}">Restore</button>
+    `;
+    row.querySelector("button").addEventListener("click", async () => {
+      if (!confirm("Restore this snapshot? Current code will be saved as a new version.")) return;
+      const res = await window.compiler.restoreVersion(v.id);
+      if (res.error) {
+        showToast(res.error, "error");
+        return;
+      }
+      if (res.snippet) {
+        loadSnippet(res.snippet);
+        showToast("Snapshot restored", "success");
+        closeModal("modal-history");
+        await refreshWorkspace();
+      }
+    });
+    list.appendChild(row);
+  });
 }
 
 // ── Modals ────────────────────────────────────────────────
@@ -595,7 +762,13 @@ async function promptRenameFolder(folder) {
 async function promptRenameSnippet(snippet) {
   const title = await customPrompt("Rename file:", snippet.title);
   if (!title?.trim() || title === snippet.title) return;
-  await window.compiler.saveSnippet({ id: snippet.id, title: title.trim(), code: snippet.code, folderId: snippet.folder_id });
+  await window.compiler.saveSnippet({
+    id: snippet.id,
+    title: title.trim(),
+    code: snippet.code,
+    language: snippet.language || "javascript",
+    folderId: snippet.folder_id,
+  });
   if (activeSnippetId === snippet.id) document.getElementById("file-name").value = title.trim();
   await refreshWorkspace();
 }
@@ -603,8 +776,9 @@ async function promptRenameSnippet(snippet) {
 function newSnippetInFolder(folderId) {
   activeSnippetId = null;
   activeFolderId = folderId;
+  setLanguageUI("javascript");
   editor.setValue(DEFAULT_CODE);
-  document.getElementById("file-name").value = "untitled.js";
+  document.getElementById("file-name").value = defaultFileName("javascript");
   isDirty = true;
   openFolders.add(folderId);
   renderFileTree();
@@ -613,6 +787,7 @@ function newSnippetInFolder(folderId) {
 function loadSnippet(snippet) {
   activeSnippetId = snippet.id;
   activeFolderId = snippet.folder_id;
+  setLanguageUI(snippet.language || "javascript");
   editor.setValue(snippet.code);
   document.getElementById("file-name").value = snippet.title;
   isDirty = false;
@@ -622,8 +797,9 @@ function loadSnippet(snippet) {
 function resetEditor() {
   activeSnippetId = null;
   activeFolderId = null;
+  setLanguageUI("javascript");
   editor.setValue(DEFAULT_CODE);
-  document.getElementById("file-name").value = "untitled.js";
+  document.getElementById("file-name").value = defaultFileName("javascript");
   isDirty = false;
   window.compiler.clearDraft();
 }
@@ -653,7 +829,10 @@ async function runCode() {
 
   document.getElementById("console").innerHTML = '<div class="log-line log" style="color:#666">Running...</div>';
   setRunState(true);
-  const result = await window.compiler.runCode(editor.getValue());
+  const result = await window.compiler.runCode({
+    code: editor.getValue(),
+    language: currentLanguage(),
+  });
   setRunState(false);
   document.getElementById("console").innerHTML = "";
   appendLogs(result.logs);
@@ -673,9 +852,16 @@ function appendLogs(logs) {
 // ── Save ──────────────────────────────────────────────────
 
 async function saveSnippet() {
-  const title = document.getElementById("file-name").value.trim() || "untitled.js";
+  const lang = currentLanguage();
+  const title = document.getElementById("file-name").value.trim() || defaultFileName(lang);
   const code = editor.getValue();
-  const result = await window.compiler.saveSnippet({ id: activeSnippetId, title, code, folderId: activeFolderId });
+  const result = await window.compiler.saveSnippet({
+    id: activeSnippetId,
+    title,
+    code,
+    language: lang,
+    folderId: activeFolderId,
+  });
 
   if (result.error) { showToast(result.error, "error"); return; }
 
@@ -684,7 +870,7 @@ async function saveSnippet() {
   await window.compiler.clearDraft();
   setAutoSaveStatus("saved");
   await refreshWorkspace();
-  showToast("Saved!", "success");
+  showToast(isPro ? "Saved! (snapshot kept)" : "Saved!", "success");
 }
 
 // ── Pro / Activation ──────────────────────────────────────
@@ -692,17 +878,47 @@ async function saveSnippet() {
 async function refreshProStatus() {
   const status = await window.compiler.getProStatus();
   isPro = status.isPro;
+  proMeta = status || {};
   const badge = document.getElementById("plan-badge");
   const btnActivate = document.getElementById("btn-activate");
+  const metaEl = document.getElementById("license-meta");
 
   if (isPro) {
-    badge.textContent = "PRO"; badge.className = "badge badge-pro";
-    btnActivate.textContent = "Pro Active ✓"; btnActivate.disabled = true;
+    const plan = status.planName || "Pro";
+    badge.textContent = plan.length > 14 ? "PRO" : plan.toUpperCase();
+    badge.className = "badge badge-pro";
+    badge.title = [
+      status.planName || "Pro",
+      status.maxDevices ? `Devices: ${status.maxDevices}` : null,
+      `Expires: ${formatExpiry(status.expiresAt)}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    btnActivate.textContent = "Pro Active ✓";
+    btnActivate.disabled = true;
+    if (metaEl) {
+      metaEl.classList.remove("hidden");
+      metaEl.textContent = [
+        status.planName ? `Plan: ${status.planName}` : "Plan: Pro",
+        status.maxDevices != null ? `Devices: up to ${status.maxDevices}` : null,
+        `License: ${formatExpiry(status.expiresAt)}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
   } else {
-    badge.textContent = "FREE"; badge.className = "badge badge-free";
-    btnActivate.textContent = "Activate Pro"; btnActivate.disabled = false;
+    badge.textContent = "FREE";
+    badge.className = "badge badge-free";
+    badge.title = "Free plan — 5 snippets";
+    btnActivate.textContent = "Activate Pro";
+    btnActivate.disabled = false;
+    if (metaEl) {
+      metaEl.classList.add("hidden");
+      metaEl.textContent = "";
+    }
   }
   snippetLimit = (await window.compiler.getSnippetLimit()).limit;
+  updateSnippetCount();
 }
 
 function openActivateModal() { openModal("modal-activate"); document.getElementById("activation-key").value = ""; }
@@ -751,7 +967,12 @@ function bindEvents() {
   document.getElementById("btn-run").addEventListener("click", runCode);
   document.getElementById("btn-save").addEventListener("click", saveSnippet);
   document.getElementById("btn-export").addEventListener("click", exportCurrentFile);
-  document.getElementById("btn-templates").addEventListener("click", () => openModal("modal-templates"));
+  document.getElementById("btn-history").addEventListener("click", openHistoryModal);
+  document.getElementById("btn-close-history").addEventListener("click", () => closeModal("modal-history"));
+  document.getElementById("btn-templates").addEventListener("click", () => {
+    renderTemplates();
+    openModal("modal-templates");
+  });
   document.getElementById("btn-close-templates").addEventListener("click", () => closeModal("modal-templates"));
   document.getElementById("btn-settings").addEventListener("click", openSettings);
   document.getElementById("btn-save-settings").addEventListener("click", saveSettingsForm);
@@ -768,6 +989,22 @@ function bindEvents() {
   document.getElementById("btn-cancel-activate").addEventListener("click", closeActivateModal);
   document.getElementById("btn-submit-activate").addEventListener("click", submitActivation);
 
+  document.getElementById("file-language").addEventListener("change", (e) => {
+    setLanguageUI(e.target.value);
+    isDirty = true;
+    setAutoSaveStatus("");
+  });
+
+  document.getElementById("template-tabs")?.addEventListener("click", (e) => {
+    const tab = e.target.closest(".template-tab");
+    if (!tab) return;
+    templateFilter = tab.dataset.lang || "all";
+    document.querySelectorAll(".template-tab").forEach((t) => {
+      t.classList.toggle("active", t === tab);
+    });
+    renderTemplates();
+  });
+
   document.getElementById("file-tree").addEventListener("dragover", (e) => e.preventDefault());
   document.getElementById("file-tree").addEventListener("drop", onDropRoot);
 
@@ -782,7 +1019,8 @@ function bindEvents() {
     if (mod && e.key === "Enter") { e.preventDefault(); runCode(); }
     if (mod && e.key === "s") { e.preventDefault(); saveSnippet(); }
     if (mod && e.key === "e") { e.preventDefault(); exportCurrentFile(); }
-    if (mod && e.key === "t") { e.preventDefault(); openModal("modal-templates"); }
+    if (mod && e.key === "h") { e.preventDefault(); openHistoryModal(); }
+    if (mod && e.key === "t") { e.preventDefault(); renderTemplates(); openModal("modal-templates"); }
     if (mod && e.key === "n") { e.preventDefault(); resetEditor(); renderFileTree(); }
     if (mod && e.key === ",") { e.preventDefault(); openSettings(); }
     if (mod && e.key === "/") { e.preventDefault(); openModal("modal-shortcuts"); }

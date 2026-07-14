@@ -4,6 +4,7 @@ const fs = require("fs");
 const { Worker } = require("worker_threads");
 const db = require("./db");
 const activation = require("./activation");
+const runner = require("./runner");
 const { setupAutoUpdater } = require("./updater");
 const telemetry = require("./telemetry");
 const protection = require("./protection");
@@ -11,7 +12,7 @@ const { startCrashReporter } = require("./crash-reporter");
 
 // Windows toast / jump-list identity
 if (process.platform === "win32") {
-  app.setAppUserModelId("com.vishvajeet.javascript-compiler");
+  app.setAppUserModelId("com.vishvajeetshukla.javascript-compiler");
 }
 
 // System-level: only one app instance
@@ -198,9 +199,20 @@ app.on("before-quit", (e) => {
 
 // ── Code Execution ────────────────────────────────────────
 
-ipcMain.handle("run-code", async (_, code) => {
-  telemetry.trackEvent("run_code", { codeLength: String(code || "").length });
-  return runCodeInWorker(code);
+ipcMain.handle("run-code", async (_, payload) => {
+  // Backward compatible: string code OR { code, language }
+  const raw = typeof payload === "string" ? payload : payload?.code;
+  const language = typeof payload === "object" && payload ? payload.language : "javascript";
+  const prepared = runner.prepareCode(raw, language || "javascript");
+  telemetry.trackEvent("run_code", {
+    codeLength: String(raw || "").length,
+    language: prepared.language,
+  });
+  const result = await runCodeInWorker(prepared.code);
+  if (prepared.note && Array.isArray(result.logs)) {
+    result.logs = [{ type: "warn", text: `ℹ ${prepared.note}` }, ...result.logs];
+  }
+  return result;
 });
 
 ipcMain.handle("stop-code", () => {
@@ -296,11 +308,30 @@ ipcMain.handle("verify-activation", async () => activation.verifyActivation());
 ipcMain.handle("get-machine-id", () => activation.getMachineId());
 ipcMain.handle("get-snippet-limit", () => ({
   limit: activation.FREE_SNIPPET_LIMIT,
-  isPro: db.getActivation()?.is_pro === 1,
+  isPro: activation.isProActive(),
 }));
 ipcMain.handle("set-activation-server", (_, url) => {
   db.setSetting("activation_server", url);
   return { ok: true };
+});
+
+// ── Version history (Pro) ────────────────────────────────
+
+ipcMain.handle("get-versions", (_, snippetId) => {
+  if (!snippetId) return [];
+  return db.getVersions(snippetId);
+});
+
+ipcMain.handle("restore-version", (_, versionId) => {
+  const gate = activation.canUseVersionHistory();
+  if (!gate.allowed) return { error: gate.message };
+  try {
+    const snippet = db.restoreVersion(versionId);
+    telemetry.trackEvent("restore_version", { versionId });
+    return { ok: true, snippet };
+  } catch (e) {
+    return { error: e.message };
+  }
 });
 
 // ── Settings ────────────────────────────────────────────
@@ -324,18 +355,20 @@ ipcMain.handle("clear-draft", () => {
   return { ok: true };
 });
 
-// ── Export ──────────────────────────────────────────────
+// ── Export (Pro only) ───────────────────────────────────
 
-ipcMain.handle("export-file", async (_, { content, defaultName }) => {
+ipcMain.handle("export-file", async (_, { content, defaultName, language }) => {
+  const gate = activation.canExport();
+  if (!gate.allowed) {
+    return { error: gate.message, proRequired: true };
+  }
+  const filters = runner.exportFilters(language);
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: defaultName || "untitled.js",
-    filters: [
-      { name: "JavaScript", extensions: ["js"] },
-      { name: "Text", extensions: ["txt"] },
-      { name: "All Files", extensions: ["*"] },
-    ],
+    defaultPath: defaultName || `untitled.${runner.defaultExtension(language)}`,
+    filters,
   });
   if (result.canceled || !result.filePath) return { canceled: true };
   fs.writeFileSync(result.filePath, content, "utf8");
+  telemetry.trackEvent("export_file", { language: language || "javascript" });
   return { ok: true, path: result.filePath };
 });

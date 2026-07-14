@@ -20,6 +20,12 @@ const orderSchema = new mongoose.Schema(
     paymentRef: { type: String, default: null },
     licenseKey: { type: String, default: null },
     licenseKeyId: { type: mongoose.Schema.Types.ObjectId, ref: 'LicenseKey', default: null },
+    /** Student plan verification */
+    studentId: { type: String, default: null, trim: true },
+    collegeName: { type: String, default: null, trim: true },
+    /** Team / coaching batch */
+    batchName: { type: String, default: null, trim: true },
+    seats: { type: Number, default: null },
     meta: mongoose.Schema.Types.Mixed,
   },
   { timestamps: true }

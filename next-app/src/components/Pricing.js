@@ -18,9 +18,23 @@ function money(amount, currency = 'INR') {
 
 function durationLabel(days) {
   if (!days || days <= 0) return 'Lifetime';
+  if (days === 7) return '7 days trial';
   if (days === 30) return '30 days';
   if (days === 365) return '1 year';
   return `${days} days`;
+}
+
+function planTypeLabel(type) {
+  switch (type) {
+    case 'student':
+      return 'Student';
+    case 'trial':
+      return 'Trial';
+    case 'team':
+      return 'Team / Batch';
+    default:
+      return 'Pro';
+  }
 }
 
 export default function Pricing() {
@@ -30,6 +44,9 @@ export default function Pricing() {
   const [selectedId, setSelectedId] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [collegeName, setCollegeName] = useState('');
+  const [batchName, setBatchName] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [formError, setFormError] = useState('');
@@ -61,6 +78,8 @@ export default function Pricing() {
   }, []);
 
   const selected = plans.find((p) => (p.id || p._id) === selectedId);
+  const needsStudent = Boolean(selected?.requiresStudentId || selected?.planType === 'student');
+  const isTeam = selected?.planType === 'team';
 
   const onBuy = async (e) => {
     e.preventDefault();
@@ -76,6 +95,16 @@ export default function Pricing() {
       setFormError('Name and email are required');
       return;
     }
+    if (needsStudent) {
+      if (!studentId.trim() || studentId.trim().length < 4) {
+        setFormError('Valid college / student ID is required');
+        return;
+      }
+      if (!collegeName.trim()) {
+        setFormError('College / institute name is required');
+        return;
+      }
+    }
 
     setBusy(true);
     try {
@@ -83,6 +112,9 @@ export default function Pricing() {
         planId: selectedId,
         name: name.trim(),
         email: email.trim(),
+        studentId: needsStudent ? studentId.trim() : undefined,
+        collegeName: needsStudent ? collegeName.trim() : undefined,
+        batchName: isTeam ? batchName.trim() || name.trim() : undefined,
       });
       setResult(res.data);
     } catch (err) {
@@ -107,11 +139,11 @@ export default function Pricing() {
     <section id="pricing" className={styles.section}>
       <div className={styles.container}>
         <div className={styles.header}>
-          <p className={styles.eyebrow}>Pro licenses</p>
+          <p className={styles.eyebrow}>Pro licenses · vishvajeetshukla.in</p>
           <h2 className={styles.title}>Buy an activation key</h2>
           <p className={styles.subtitle}>
-            Choose a plan, complete checkout, and get a license key instantly. Activate it in the
-            desktop app under <strong>Activate Pro</strong>.
+            Trial, Student (college ID), Monthly / Yearly, Lifetime, or Team batch for coaching classes.
+            Activate the key in the desktop app under <strong>Activate Pro</strong>.
           </p>
         </div>
 
@@ -132,13 +164,22 @@ export default function Pricing() {
                     onClick={() => setSelectedId(id)}
                   >
                     <div className={styles.planTop}>
-                      <h3>{p.name}</h3>
-                      <span className={styles.price}>{money(p.price, p.currency)}</span>
+                      <h3>
+                        {p.name}
+                        <span className={styles.typePill}>{planTypeLabel(p.planType)}</span>
+                      </h3>
+                      <span className={styles.price}>
+                        {money(p.price, p.currency)}
+                        {p.originalPrice ? (
+                          <span className={styles.strike}>{money(p.originalPrice, p.currency)}</span>
+                        ) : null}
+                      </span>
                     </div>
                     <p className={styles.planMeta}>
                       {durationLabel(p.durationDays)} · {p.maxDevices} device
                       {p.maxDevices > 1 ? 's' : ''}
                       {p.oneTime ? ' · one-time key' : ''}
+                      {p.planType === 'team' ? ` · ${p.seats || p.maxDevices} seats` : ''}
                     </p>
                     {p.description ? <p className={styles.planDesc}>{p.description}</p> : null}
                     <ul className={styles.features}>
@@ -157,6 +198,7 @@ export default function Pricing() {
                 <p className={styles.selectedLine}>
                   Selected: <strong>{selected.name}</strong> —{' '}
                   {money(selected.price, selected.currency)}
+                  {needsStudent ? ' · Student ID required' : ''}
                 </p>
               )}
 
@@ -183,13 +225,52 @@ export default function Pricing() {
                       autoComplete="email"
                     />
                   </label>
+
+                  {needsStudent && (
+                    <>
+                      <label className={styles.field}>
+                        <span>College / Student ID *</span>
+                        <input
+                          value={studentId}
+                          onChange={(e) => setStudentId(e.target.value)}
+                          placeholder="e.g. STU2024-12345"
+                          required
+                        />
+                      </label>
+                      <label className={styles.field}>
+                        <span>College / Institute *</span>
+                        <input
+                          value={collegeName}
+                          onChange={(e) => setCollegeName(e.target.value)}
+                          placeholder="College name"
+                          required
+                        />
+                      </label>
+                    </>
+                  )}
+
+                  {isTeam && (
+                    <label className={styles.field}>
+                      <span>Batch / class name</span>
+                      <input
+                        value={batchName}
+                        onChange={(e) => setBatchName(e.target.value)}
+                        placeholder="e.g. JS Coaching Batch A"
+                      />
+                    </label>
+                  )}
+
                   <p className={styles.demoNote}>
-                    Demo checkout — payment is simulated. Your license key is saved in MongoDB and
-                    shown instantly.
+                    Demo checkout — payment is simulated. License key is issued instantly (saved in
+                    MongoDB). Student plans store your ID for verification.
                   </p>
                   {formError && <p className={styles.error}>{formError}</p>}
                   <button className={styles.buyBtn} type="submit" disabled={busy || !selectedId}>
-                    {busy ? 'Processing…' : 'Buy key now'}
+                    {busy
+                      ? 'Processing…'
+                      : selected?.price === 0
+                        ? 'Get free trial key'
+                        : 'Buy key now'}
                   </button>
                 </form>
               ) : (
@@ -197,6 +278,14 @@ export default function Pricing() {
                   <p className={styles.successTitle}>✓ Purchase complete</p>
                   <p className={styles.muted}>
                     Order <code>{result.orderId}</code>
+                    {result.plan?.maxDevices
+                      ? ` · up to ${result.plan.maxDevices} device(s)`
+                      : ''}
+                    {result.expiresAt
+                      ? ` · expires ${new Date(result.expiresAt).toLocaleDateString()}`
+                      : result.plan?.durationDays === 0
+                        ? ' · lifetime'
+                        : ''}
                   </p>
                   <p className={styles.keyLabel}>Your license key</p>
                   <div className={styles.keyBox}>
@@ -207,7 +296,9 @@ export default function Pricing() {
                   </div>
                   <ol className={styles.steps}>
                     <li>Open JS Compiler desktop app</li>
-                    <li>Click <strong>Activate Pro</strong></li>
+                    <li>
+                      Click <strong>Activate Pro</strong>
+                    </li>
                     <li>Paste this key and activate online</li>
                   </ol>
                   <button

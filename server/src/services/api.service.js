@@ -93,13 +93,13 @@ const getLandingContent = () => {
         icon: '⚡',
         title: 'Instant Run',
         description:
-          'Write and execute JavaScript snippets instantly with a clean desktop UI.',
+          'Write and execute JavaScript, TypeScript, HTML+JS, and Node-style snippets.',
       },
       {
         icon: '📁',
         title: 'Folders & Templates',
         description:
-          'Organize snippets into folders and reuse templates for everyday tasks.',
+          'Organize snippets into folders and reuse multi-language templates.',
       },
       {
         icon: '💾',
@@ -108,22 +108,22 @@ const getLandingContent = () => {
           'Your code stays on your machine with SQLite-backed local storage.',
       },
       {
-        icon: '🔑',
-        title: 'Pro Activation',
+        icon: '🕘',
+        title: 'Version History (Pro)',
         description:
-          'Unlock Pro features with secure machine-bound license activation.',
+          'Automatic snapshots on save — restore any previous version when Pro is active.',
+      },
+      {
+        icon: '🔑',
+        title: 'Pro · Student · Team',
+        description:
+          'Trial, student (college ID), multi-device plans, and coaching batch licenses.',
       },
       {
         icon: '🔒',
         title: 'Privacy First',
         description:
           'No cloud lock-in. Snippets and projects remain under your control.',
-      },
-      {
-        icon: '🖥️',
-        title: 'Cross Platform',
-        description:
-          'Built with Electron for a smooth native experience on desktop.',
       },
     ],
     stats: [

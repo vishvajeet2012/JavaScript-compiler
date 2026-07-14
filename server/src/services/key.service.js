@@ -38,7 +38,7 @@ function computeExpiresAt(plan, customExpiresAt) {
 // ── Pricing ──────────────────────────────────────────────
 
 async function listPlans() {
-  return PricingPlan.find().sort({ price: 1 }).lean();
+  return PricingPlan.find().sort({ sortOrder: 1, price: 1 }).lean();
 }
 
 async function createPlan(body) {
@@ -51,17 +51,33 @@ async function createPlan(body) {
   const existing = await PricingPlan.findOne({ code });
   if (existing) throw ApiError.badRequest(`Plan code already exists: ${code}`);
 
+  const planType = ['standard', 'student', 'trial', 'team'].includes(body.planType)
+    ? body.planType
+    : 'standard';
+  const maxDevices = Math.max(1, Number(body.maxDevices) || Number(body.seats) || 1);
+
   return PricingPlan.create({
     name: body.name.trim(),
     code,
     price: Number(body.price) || 0,
+    originalPrice:
+      body.originalPrice != null && body.originalPrice !== ''
+        ? Number(body.originalPrice)
+        : null,
     currency: (body.currency || 'INR').toUpperCase(),
     durationDays: body.durationDays == null ? 30 : Number(body.durationDays),
-    maxDevices: Math.max(1, Number(body.maxDevices) || 1),
+    maxDevices,
     oneTime: Boolean(body.oneTime),
+    planType,
+    requiresStudentId:
+      body.requiresStudentId != null
+        ? Boolean(body.requiresStudentId)
+        : planType === 'student',
+    seats: Math.max(1, Number(body.seats) || maxDevices),
     description: body.description || '',
     features: Array.isArray(body.features) ? body.features : [],
     active: body.active !== false,
+    sortOrder: body.sortOrder != null ? Number(body.sortOrder) : 100,
   });
 }
 
@@ -72,18 +88,28 @@ async function updatePlan(id, body) {
   const fields = [
     'name',
     'price',
+    'originalPrice',
     'currency',
     'durationDays',
     'maxDevices',
     'oneTime',
+    'planType',
+    'requiresStudentId',
+    'seats',
     'description',
     'features',
     'active',
+    'sortOrder',
   ];
   fields.forEach((f) => {
     if (body[f] !== undefined) plan[f] = body[f];
   });
   if (body.maxDevices !== undefined) plan.maxDevices = Math.max(1, Number(body.maxDevices));
+  if (body.seats !== undefined) plan.seats = Math.max(1, Number(body.seats));
+  if (body.originalPrice === '' || body.originalPrice === null) plan.originalPrice = null;
+  if (plan.planType === 'student' && body.requiresStudentId === undefined) {
+    plan.requiresStudentId = true;
+  }
   await plan.save();
   return plan;
 }
@@ -101,12 +127,18 @@ async function generateKeys(body) {
   if (!plan) throw ApiError.notFound('Pricing plan not found');
   if (!plan.active) throw ApiError.badRequest('Plan is inactive');
 
-  const count = Math.min(Math.max(Number(body.count) || 1, 1), 100);
+  // Team/coaching batch: up to 200 seat keys at once
+  const maxCount = plan.planType === 'team' || body.batchName ? 200 : 100;
+  const count = Math.min(Math.max(Number(body.count) || 1, 1), maxCount);
   const maxDevices =
     body.maxDevices != null ? Math.max(1, Number(body.maxDevices)) : plan.maxDevices;
   const oneTime = body.oneTime != null ? Boolean(body.oneTime) : plan.oneTime;
   const expiresAt = computeExpiresAt(plan, body.expiresAt);
-  const note = body.note || '';
+  const batchName = String(body.batchName || '').trim();
+  const batchId = batchName
+    ? `BATCH-${Date.now().toString(36).toUpperCase()}`
+    : String(body.batchId || '').trim() || null;
+  const noteBase = body.note || '';
   const prefix = body.prefix || plan.code.slice(0, 4);
 
   const created = [];
@@ -123,6 +155,11 @@ async function generateKeys(body) {
       attempts += 1;
       if (attempts > 20) throw ApiError.internal('Failed to generate unique key');
     }
+
+    const seatLabel = count > 1 ? `seat ${i + 1}/${count}` : null;
+    const note = [noteBase, batchId ? `batchId:${batchId}` : null, batchName ? `batch:${batchName}` : null, seatLabel]
+      .filter(Boolean)
+      .join(' · ');
 
     // eslint-disable-next-line no-await-in-loop
     const doc = await LicenseKey.create({
@@ -284,7 +321,10 @@ async function activateKey({ key, machineId }) {
       message: 'Pro mode activated successfully!',
       expiresAt: license.expiresAt,
       maxDevices: license.maxDevices,
+      devicesUsed: license.devices.length,
       planName: license.planName,
+      planCode: license.planCode,
+      oneTime: Boolean(license.oneTime),
     };
   }
 
@@ -315,7 +355,10 @@ async function activateKey({ key, machineId }) {
     message: 'Pro mode activated successfully!',
     expiresAt: license.expiresAt,
     maxDevices: license.maxDevices,
+    devicesUsed: license.devices.length,
     planName: license.planName,
+    planCode: license.planCode,
+    oneTime: Boolean(license.oneTime),
   };
 }
 
@@ -357,62 +400,206 @@ async function verifyKey({ key, machineId, token }) {
     valid: true,
     token: expected,
     expiresAt: license.expiresAt,
+    maxDevices: license.maxDevices,
+    devicesUsed: license.devices.length,
     planName: license.planName,
+    planCode: license.planCode,
+    oneTime: Boolean(license.oneTime),
   };
 }
 
-async function seedDefaultPlans() {
-  const count = await PricingPlan.countDocuments();
-  if (count > 0) return { seeded: false };
+const DEFAULT_PLANS = [
+  {
+    name: '7-Day Trial',
+    code: 'TRIAL_7D',
+    price: 0,
+    currency: 'INR',
+    durationDays: 7,
+    maxDevices: 1,
+    oneTime: true,
+    planType: 'trial',
+    requiresStudentId: false,
+    seats: 1,
+    sortOrder: 10,
+    description: 'Free 7-day trial key — full Pro on 1 device (one-time use)',
+    features: [
+      '7 days full Pro',
+      'Unlimited snippets',
+      'Export + version history',
+      'TS / HTML+JS / Node',
+      '1 device · one-time key',
+    ],
+  },
+  {
+    name: 'Pro Monthly',
+    code: 'PRO_MONTHLY',
+    price: 149,
+    currency: 'INR',
+    durationDays: 30,
+    maxDevices: 1,
+    oneTime: false,
+    planType: 'standard',
+    seats: 1,
+    sortOrder: 20,
+    description: 'Full Pro for 30 days, 1 device',
+    features: [
+      'Unlimited snippets',
+      'Export projects',
+      'Version history',
+      'TS / HTML+JS / Node',
+      '1 device · 30 days',
+    ],
+  },
+  {
+    name: 'Pro Yearly',
+    code: 'PRO_YEARLY',
+    price: 799,
+    currency: 'INR',
+    durationDays: 365,
+    maxDevices: 2,
+    oneTime: false,
+    planType: 'standard',
+    seats: 2,
+    sortOrder: 30,
+    description: 'Full Pro for 1 year, up to 2 devices — best value',
+    features: [
+      'Unlimited snippets',
+      'Export + version history',
+      'Multi-language support',
+      '2 devices · 1 year',
+    ],
+  },
+  {
+    name: 'Student Yearly',
+    code: 'STUDENT_YEARLY',
+    price: 399,
+    originalPrice: 799,
+    currency: 'INR',
+    durationDays: 365,
+    maxDevices: 1,
+    oneTime: false,
+    planType: 'student',
+    requiresStudentId: true,
+    seats: 1,
+    sortOrder: 40,
+    description: '50% student discount — verify with college / student ID',
+    features: [
+      'Student discount (~50% off)',
+      'Full Pro for 1 year',
+      'College / student ID required',
+      '1 device',
+    ],
+  },
+  {
+    name: 'Lifetime',
+    code: 'LIFETIME',
+    price: 1999,
+    currency: 'INR',
+    durationDays: 0,
+    maxDevices: 3,
+    oneTime: false,
+    planType: 'standard',
+    seats: 3,
+    sortOrder: 50,
+    description: 'Pay once — Lifetime Pro, up to 3 devices',
+    features: [
+      'Lifetime Pro',
+      'Unlimited snippets',
+      'Export + version history',
+      '3 devices',
+    ],
+  },
+  {
+    name: 'Team / Batch (25 seats)',
+    code: 'TEAM_25',
+    price: 4999,
+    currency: 'INR',
+    durationDays: 365,
+    maxDevices: 25,
+    oneTime: false,
+    planType: 'team',
+    requiresStudentId: false,
+    seats: 25,
+    sortOrder: 60,
+    description: 'Coaching class license — 25 devices for 1 year (single master key)',
+    features: [
+      '25 device seats',
+      'Ideal for coaching batches',
+      '1 year validity',
+      'Full Pro for every seat',
+    ],
+  },
+  {
+    name: 'One-Time Trial (paid)',
+    code: 'ONETIME',
+    price: 49,
+    currency: 'INR',
+    durationDays: 7,
+    maxDevices: 1,
+    oneTime: true,
+    planType: 'trial',
+    seats: 1,
+    sortOrder: 15,
+    description: '₹49 · 7-day single-use trial key, 1 device',
+    features: ['7 days', '1 device', 'One-time use'],
+  },
+];
 
-  await PricingPlan.insertMany([
-    {
-      name: 'Pro Monthly',
-      code: 'PRO_MONTHLY',
-      price: 199,
-      currency: 'INR',
-      durationDays: 30,
-      maxDevices: 1,
-      oneTime: false,
-      description: 'Full Pro for 30 days, 1 device',
-      features: ['Unlimited snippets', 'Export', '1 device'],
-    },
-    {
-      name: 'Pro Yearly',
-      code: 'PRO_YEARLY',
-      price: 1499,
-      currency: 'INR',
-      durationDays: 365,
-      maxDevices: 2,
-      oneTime: false,
-      description: 'Full Pro for 1 year, up to 2 devices',
-      features: ['Unlimited snippets', 'Export', '2 devices'],
-    },
-    {
-      name: 'Lifetime',
-      code: 'LIFETIME',
-      price: 4999,
-      currency: 'INR',
-      durationDays: 0,
-      maxDevices: 3,
-      oneTime: false,
-      description: 'Lifetime Pro, up to 3 devices',
-      features: ['Unlimited snippets', 'Export', '3 devices', 'Lifetime'],
-    },
-    {
-      name: 'One-Time Trial',
-      code: 'ONETIME',
-      price: 49,
-      currency: 'INR',
-      durationDays: 7,
-      maxDevices: 1,
-      oneTime: true,
-      description: '7-day single-use key, 1 device only',
-      features: ['7 days', '1 device', 'One-time use'],
-    },
-  ]);
+/**
+ * Upsert all default plans by code (safe to re-run).
+ * Adds missing plans; does not overwrite price if plan already customized
+ * unless force=true.
+ */
+async function seedDefaultPlans(options = {}) {
+  const force = Boolean(options.force);
+  let inserted = 0;
+  let updated = 0;
 
-  return { seeded: true };
+  for (const def of DEFAULT_PLANS) {
+    // eslint-disable-next-line no-await-in-loop
+    const existing = await PricingPlan.findOne({ code: def.code });
+    if (!existing) {
+      // eslint-disable-next-line no-await-in-loop
+      await PricingPlan.create(def);
+      inserted += 1;
+    } else if (force) {
+      Object.assign(existing, def);
+      // eslint-disable-next-line no-await-in-loop
+      await existing.save();
+      updated += 1;
+    } else {
+      // ensure new metadata fields exist without wiping custom prices
+      let dirty = false;
+      if (!existing.planType && def.planType) {
+        existing.planType = def.planType;
+        dirty = true;
+      }
+      if (existing.requiresStudentId == null && def.requiresStudentId != null) {
+        existing.requiresStudentId = def.requiresStudentId;
+        dirty = true;
+      }
+      if (!existing.seats && def.seats) {
+        existing.seats = def.seats;
+        dirty = true;
+      }
+      if (existing.sortOrder == null && def.sortOrder != null) {
+        existing.sortOrder = def.sortOrder;
+        dirty = true;
+      }
+      if (dirty) {
+        // eslint-disable-next-line no-await-in-loop
+        await existing.save();
+        updated += 1;
+      }
+    }
+  }
+
+  return {
+    seeded: inserted > 0 || updated > 0,
+    inserted,
+    updated,
+    total: DEFAULT_PLANS.length,
+  };
 }
 
 module.exports = {

@@ -5,6 +5,8 @@ const fs = require("fs");
 
 let db = null;
 
+const MAX_VERSIONS_PER_SNIPPET = 30;
+
 function getDbPath() {
   const dir = path.join(app.getPath("userData"), "data");
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -16,6 +18,20 @@ function migrate(database) {
   if (!cols.includes("folder_id")) {
     database.exec("ALTER TABLE snippets ADD COLUMN folder_id INTEGER REFERENCES folders(id)");
   }
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS snippet_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      snippet_id INTEGER NOT NULL,
+      title TEXT,
+      code TEXT NOT NULL,
+      language TEXT DEFAULT 'javascript',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (snippet_id) REFERENCES snippets(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_snippet_versions_snippet
+      ON snippet_versions(snippet_id, created_at DESC);
+  `);
 }
 
 function initDb() {
@@ -117,21 +133,105 @@ function getSnippets() {
   return initDb().prepare("SELECT * FROM snippets ORDER BY updated_at DESC").all();
 }
 
+function getSnippet(id) {
+  return initDb().prepare("SELECT * FROM snippets WHERE id=?").get(id);
+}
+
 function getSnippetCount() {
   return initDb().prepare("SELECT COUNT(*) as count FROM snippets").get().count;
+}
+
+function pushVersion(snippetId, { title, code, language }) {
+  const database = initDb();
+  database
+    .prepare(
+      "INSERT INTO snippet_versions (snippet_id, title, code, language) VALUES (?, ?, ?, ?)"
+    )
+    .run(snippetId, title || "", code || "", language || "javascript");
+
+  // Keep only latest N versions
+  const excess = database
+    .prepare(
+      `SELECT id FROM snippet_versions
+       WHERE snippet_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT -1 OFFSET ?`
+    )
+    .all(snippetId, MAX_VERSIONS_PER_SNIPPET);
+
+  if (excess.length) {
+    const del = database.prepare("DELETE FROM snippet_versions WHERE id=?");
+    const tx = database.transaction((rows) => {
+      rows.forEach((r) => del.run(r.id));
+    });
+    tx(excess);
+  }
+}
+
+function getVersions(snippetId, limit = 30) {
+  return initDb()
+    .prepare(
+      `SELECT id, snippet_id, title, language, created_at,
+              length(code) as code_length,
+              substr(code, 1, 120) as preview
+       FROM snippet_versions
+       WHERE snippet_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?`
+    )
+    .all(snippetId, Math.min(Math.max(limit, 1), 50));
+}
+
+function getVersion(versionId) {
+  return initDb().prepare("SELECT * FROM snippet_versions WHERE id=?").get(versionId);
+}
+
+function restoreVersion(versionId) {
+  const version = getVersion(versionId);
+  if (!version) throw new Error("Version not found");
+
+  const current = getSnippet(version.snippet_id);
+  if (!current) throw new Error("Snippet not found");
+
+  // Snapshot current before restore
+  if (current.code !== version.code) {
+    pushVersion(current.id, {
+      title: current.title,
+      code: current.code,
+      language: current.language,
+    });
+  }
+
+  initDb()
+    .prepare(
+      "UPDATE snippets SET title=?, code=?, language=?, updated_at=datetime('now') WHERE id=?"
+    )
+    .run(version.title || current.title, version.code, version.language || current.language, current.id);
+
+  return getSnippet(current.id);
 }
 
 function saveSnippet({ id, title, code, language = "javascript", folderId = null }) {
   const database = initDb();
   if (id) {
-    database.prepare(
-      "UPDATE snippets SET title=?, code=?, language=?, folder_id=?, updated_at=datetime('now') WHERE id=?"
-    ).run(title, code, language, folderId, id);
+    const existing = database.prepare("SELECT * FROM snippets WHERE id=?").get(id);
+    if (existing && existing.code !== code) {
+      pushVersion(id, {
+        title: existing.title,
+        code: existing.code,
+        language: existing.language,
+      });
+    }
+    database
+      .prepare(
+        "UPDATE snippets SET title=?, code=?, language=?, folder_id=?, updated_at=datetime('now') WHERE id=?"
+      )
+      .run(title, code, language, folderId, id);
     return id;
   }
-  const result = database.prepare(
-    "INSERT INTO snippets (title, code, language, folder_id) VALUES (?, ?, ?, ?)"
-  ).run(title, code, language, folderId);
+  const result = database
+    .prepare("INSERT INTO snippets (title, code, language, folder_id) VALUES (?, ?, ?, ?)")
+    .run(title, code, language, folderId);
   return result.lastInsertRowid;
 }
 
@@ -140,7 +240,9 @@ function moveSnippet(id, folderId) {
 }
 
 function deleteSnippet(id) {
-  initDb().prepare("DELETE FROM snippets WHERE id=?").run(id);
+  const database = initDb();
+  database.prepare("DELETE FROM snippet_versions WHERE snippet_id=?").run(id);
+  database.prepare("DELETE FROM snippets WHERE id=?").run(id);
 }
 
 // ── Settings & Activation ─────────────────────────────────
@@ -151,9 +253,11 @@ function getSetting(key, fallback = null) {
 }
 
 function setSetting(key, value) {
-  initDb().prepare(
-    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
-  ).run(key, value);
+  initDb()
+    .prepare(
+      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value"
+    )
+    .run(key, value);
 }
 
 function getActivation() {
@@ -161,21 +265,32 @@ function getActivation() {
 }
 
 function saveActivation({ isPro, activationKey, machineId, token }) {
-  initDb().prepare(`
+  initDb()
+    .prepare(
+      `
     UPDATE activation SET
       is_pro=?, activation_key=?, machine_id=?,
       activated_at=datetime('now'), last_verified=datetime('now'), token=?
     WHERE id=1
-  `).run(isPro ? 1 : 0, activationKey, machineId, token);
+  `
+    )
+    .run(isPro ? 1 : 0, activationKey, machineId, token);
 }
 
 function clearActivation() {
-  initDb().prepare(`
+  initDb()
+    .prepare(
+      `
     UPDATE activation SET is_pro=0, activation_key=NULL, machine_id=NULL,
       activated_at=NULL, last_verified=NULL, token=NULL WHERE id=1
-  `).run();
+  `
+    )
+    .run();
   try {
     setSetting("license_expires_at", "");
+    setSetting("license_plan_name", "");
+    setSetting("license_plan_code", "");
+    setSetting("license_max_devices", "");
   } catch {
     /* ignore */
   }
@@ -193,7 +308,9 @@ function getAllSettings() {
   const database = initDb();
   const result = { ...DEFAULT_SETTINGS };
   const rows = database.prepare("SELECT key, value FROM settings").all();
-  rows.forEach((r) => { result[r.key] = r.value; });
+  rows.forEach((r) => {
+    result[r.key] = r.value;
+  });
   return result;
 }
 
@@ -201,10 +318,11 @@ function saveSettings(settings) {
   Object.entries(settings).forEach(([key, value]) => setSetting(key, String(value)));
 }
 
-function saveDraft({ title, code, folderId }) {
+function saveDraft({ title, code, folderId, language }) {
   setSetting("draft_title", title || "untitled.js");
   setSetting("draft_code", code || "");
   setSetting("draft_folder_id", folderId != null ? String(folderId) : "");
+  setSetting("draft_language", language || "javascript");
   setSetting("draft_saved_at", new Date().toISOString());
 }
 
@@ -215,15 +333,18 @@ function getDraft() {
   return {
     title: getSetting("draft_title", "untitled.js"),
     code,
+    language: getSetting("draft_language", "javascript"),
     folderId: folderRaw ? parseInt(folderRaw, 10) : null,
     savedAt: getSetting("draft_saved_at"),
   };
 }
 
 function clearDraft() {
-  ["draft_title", "draft_code", "draft_folder_id", "draft_saved_at"].forEach((k) => {
-    initDb().prepare("DELETE FROM settings WHERE key=?").run(k);
-  });
+  ["draft_title", "draft_code", "draft_folder_id", "draft_language", "draft_saved_at"].forEach(
+    (k) => {
+      initDb().prepare("DELETE FROM settings WHERE key=?").run(k);
+    }
+  );
 }
 
 module.exports = {
@@ -234,10 +355,14 @@ module.exports = {
   moveFolder,
   deleteFolder,
   getSnippets,
+  getSnippet,
   getSnippetCount,
   saveSnippet,
   moveSnippet,
   deleteSnippet,
+  getVersions,
+  getVersion,
+  restoreVersion,
   getSetting,
   setSetting,
   getActivation,
@@ -248,4 +373,5 @@ module.exports = {
   saveDraft,
   getDraft,
   clearDraft,
+  MAX_VERSIONS_PER_SNIPPET,
 };

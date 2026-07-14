@@ -53,9 +53,16 @@
     <main class="main">
       <div class="toolbar">
         <input id="file-name" class="file-name" value="untitled.js" />
+        <select id="file-language" class="lang-select" title="Language mode">
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="html">HTML + JS</option>
+          <option value="node">Node</option>
+        </select>
         <div class="toolbar-actions">
           <button id="btn-templates" class="btn-secondary" title="Code templates (Ctrl+T)">Templates</button>
-          <button id="btn-export" class="btn-secondary" title="Export file (Ctrl+E)">Export</button>
+          <button id="btn-history" class="btn-secondary" title="Version history (Pro)">History</button>
+          <button id="btn-export" class="btn-secondary" title="Export file — Pro (Ctrl+E)">Export</button>
           <button id="btn-run" class="btn-primary">
             <svg id="run-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             <span id="run-label">Run</span>
@@ -81,22 +88,28 @@
   <div id="modal-activate" class="modal hidden">
     <div class="modal-box">
       <h2>Activate Pro Mode</h2>
-      <p class="modal-desc">Enter your activation code to unlock unlimited snippets, export, and more.</p>
+      <p class="modal-desc">Enter your activation code to unlock unlimited snippets, export, version history, and more.</p>
 
       <div class="pro-features">
         <div class="pro-feat">✓ Unlimited snippets</div>
-        <div class="pro-feat">✓ Export projects</div>
-        <div class="pro-feat">✓ Version history</div>
-        <div class="pro-feat">✓ Premium themes</div>
+        <div class="pro-feat">✓ Export files (Pro)</div>
+        <div class="pro-feat">✓ Version history / restore</div>
+        <div class="pro-feat">✓ TS · HTML+JS · Node run</div>
+        <div class="pro-feat">✓ Multi-device by plan</div>
+        <div class="pro-feat">✓ License duration tracked</div>
       </div>
 
       <input id="activation-key" class="activation-input" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" />
       <p id="activation-error" class="error-text hidden"></p>
       <p id="activation-success" class="success-text hidden"></p>
+      <p id="license-meta" class="license-meta hidden"></p>
 
       <div class="machine-id">
         Machine ID: <code id="machine-id">...</code>
       </div>
+      <p class="modal-desc" style="margin-top:0.75rem;font-size:0.8rem">
+        Buy keys at <strong>vishvajeetshukla.in</strong> · Student / Trial / Team plans available
+      </p>
 
       <div class="modal-actions">
         <button id="btn-cancel-activate" class="btn-ghost">Cancel</button>
@@ -109,10 +122,29 @@
   <div id="modal-templates" class="modal hidden">
     <div class="modal-box modal-wide">
       <h2>Code Templates</h2>
-      <p class="modal-desc">Pick a template to load into the editor</p>
+      <p class="modal-desc">JS · TypeScript · HTML+JS · Node — pick a template to load</p>
+      <div class="template-tabs" id="template-tabs">
+        <button type="button" class="template-tab active" data-lang="all">All</button>
+        <button type="button" class="template-tab" data-lang="javascript">JS</button>
+        <button type="button" class="template-tab" data-lang="typescript">TS</button>
+        <button type="button" class="template-tab" data-lang="html">HTML</button>
+        <button type="button" class="template-tab" data-lang="node">Node</button>
+      </div>
       <div id="template-list" class="template-grid"></div>
       <div class="modal-actions">
         <button id="btn-close-templates" class="btn-ghost">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Version History Modal (Pro) -->
+  <div id="modal-history" class="modal hidden">
+    <div class="modal-box modal-wide">
+      <h2>Version history</h2>
+      <p class="modal-desc" id="history-desc">Snapshots of this file (Pro). Restore any previous save.</p>
+      <div id="history-list" class="history-list"></div>
+      <div class="modal-actions">
+        <button id="btn-close-history" class="btn-ghost">Close</button>
       </div>
     </div>
   </div>
@@ -178,7 +210,8 @@
       <div class="shortcut-list">
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>Enter</kbd><span>Run / Stop code</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>S</kbd><span>Save snippet</span></div>
-        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>E</kbd><span>Export file</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>E</kbd><span>Export file (Pro)</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>H</kbd><span>Version history (Pro)</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>T</kbd><span>Open templates</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>N</kbd><span>New file</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>,</kbd><span>Settings</span></div>

@@ -117,7 +117,7 @@ function startCrashReporter() {
     // Electron native crash dumps (minidumps) — upload URL optional
     crashReporter.start({
       productName: "JS Compiler",
-      companyName: "vishvajeet shukla",
+      companyName: "vishvajeetshukla.in",
       submitURL: `${serverBase()}/api/crashes/minidump`,
       uploadToServer: true,
       compress: true,

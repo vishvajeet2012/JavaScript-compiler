@@ -25,6 +25,8 @@ router.get('/keys/:id', adminController.getKey);
 router.post('/keys/:id/revoke', adminController.revokeKey);
 router.delete('/keys/:id', adminController.deleteKey);
 
+router.get('/orders', adminController.listOrders);
+
 router.get('/crashes/stats', adminController.crashStats);
 router.get('/crashes', adminController.listCrashes);
 router.delete('/crashes/:id', adminController.deleteCrash);

@@ -6,6 +6,7 @@ const TABS = [
   { id: 'usage', label: 'Usage Analytics' },
   { id: 'crashes', label: 'Crash Reports' },
   { id: 'pricing', label: 'Pricing' },
+  { id: 'orders', label: 'Orders' },
   { id: 'keys', label: 'License Keys' },
   { id: 'generate', label: 'Generate Keys' },
 ];
@@ -47,6 +48,8 @@ export default function App() {
   const [deviceQuery, setDeviceQuery] = useState('');
   const [crashes, setCrashes] = useState([]);
   const [crashStats, setCrashStats] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [orderQuery, setOrderQuery] = useState('');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -61,7 +64,7 @@ export default function App() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [s, p, k, u, d, cs, cl] = await Promise.all([
+      const [s, p, k, u, d, cs, cl, o] = await Promise.all([
         api.stats(),
         api.listPlans(),
         api.listKeys(keyFilter.status || keyFilter.q ? keyFilter : {}),
@@ -69,6 +72,7 @@ export default function App() {
         api.usageDevices({ q: deviceQuery || undefined }).catch(() => ({ data: [] })),
         api.crashStats().catch(() => ({ data: null })),
         api.listCrashes().catch(() => ({ data: [] })),
+        api.listOrders().catch(() => ({ data: [] })),
       ]);
       setStats(s.data);
       setPlans(p.data || []);
@@ -77,6 +81,7 @@ export default function App() {
       setDevices(d.data || []);
       setCrashStats(cs.data);
       setCrashes(cl.data || []);
+      setOrders(o.data || []);
     } catch (err) {
       if (err.status === 401) logout();
       showToast(err.message, 'error');
@@ -171,15 +176,22 @@ export default function App() {
 
       <main className="main">
         {tab === 'dashboard' && (
-          <Dashboard stats={stats} plans={plans} keys={keys} usage={usageOverview} onSeed={async () => {
-            try {
-              const res = await api.seed();
-              showToast(res.message);
-              loadAll();
-            } catch (e) {
-              showToast(e.message, 'error');
-            }
-          }} />
+          <Dashboard
+            stats={stats}
+            plans={plans}
+            keys={keys}
+            usage={usageOverview}
+            orders={orders}
+            onSeed={async (force = false) => {
+              try {
+                const res = await api.seed(force);
+                showToast(res.message);
+                loadAll();
+              } catch (e) {
+                showToast(e.message, 'error');
+              }
+            }}
+          />
         )}
         {tab === 'usage' && (
           <UsageAnalytics
@@ -254,6 +266,22 @@ export default function App() {
             toast={showToast}
           />
         )}
+        {tab === 'orders' && (
+          <Orders
+            orders={orders}
+            query={orderQuery}
+            setQuery={setOrderQuery}
+            toast={showToast}
+            onReload={async () => {
+              try {
+                const o = await api.listOrders(orderQuery ? { q: orderQuery } : {});
+                setOrders(o.data || []);
+              } catch (e) {
+                showToast(e.message, 'error');
+              }
+            }}
+          />
+        )}
         {tab === 'keys' && (
           <Keys
             keys={keys}
@@ -315,27 +343,40 @@ export default function App() {
   );
 }
 
-function Dashboard({ stats, plans, keys, usage, onSeed }) {
+function Dashboard({ stats, plans, keys, usage, orders = [], onSeed }) {
   const recent = useMemo(() => keys.slice(0, 8), [keys]);
   return (
     <>
       <div className="topbar">
         <div>
           <h2>Dashboard</h2>
-          <p>Overview of pricing plans, keys, and silent usage analytics.</p>
+          <p>Plans (Trial / Student / Team), keys, orders — publisher: vishvajeetshukla.in</p>
         </div>
-        <button className="btn btn-secondary" type="button" onClick={onSeed}>
-          Seed default plans
-        </button>
+        <div className="form-actions" style={{ margin: 0 }}>
+          <button className="btn btn-secondary" type="button" onClick={() => onSeed(false)}>
+            Sync missing plans
+          </button>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => {
+              if (confirm('Force-reset default plan prices/features from seed? Custom edits on those codes will be overwritten.')) {
+                onSeed(true);
+              }
+            }}
+          >
+            Force reseed defaults
+          </button>
+        </div>
       </div>
 
       <div className="stats-grid">
         <Stat label="Plans" value={stats?.plans ?? '—'} />
         <Stat label="Total keys" value={stats?.totalKeys ?? '—'} />
         <Stat label="Active keys" value={stats?.activeKeys ?? '—'} />
+        <Stat label="Orders" value={orders?.length ?? '—'} />
         <Stat label="Devices tracked" value={usage?.devices ?? '—'} />
         <Stat label="Total app time" value={usage?.totalDurationHuman ?? '—'} />
-        <Stat label="Active time" value={usage?.totalActiveHuman ?? '—'} />
         <Stat label="Code runs" value={usage?.totalRuns ?? '—'} />
         <Stat label="Pro users" value={usage?.proUsers ?? '—'} />
       </div>
@@ -345,17 +386,18 @@ function Dashboard({ stats, plans, keys, usage, onSeed }) {
           <h3>Pricing plans ({plans.length})</h3>
         </div>
         {plans.length === 0 ? (
-          <div className="empty">No plans yet. Click “Seed default plans” or create one.</div>
+          <div className="empty">No plans yet. Click “Sync missing plans” or create one.</div>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Type</th>
                   <th>Price</th>
                   <th>Duration</th>
-                  <th>Devices</th>
-                  <th>One-time</th>
+                  <th>Devices / seats</th>
+                  <th>Flags</th>
                 </tr>
               </thead>
               <tbody>
@@ -365,10 +407,26 @@ function Dashboard({ stats, plans, keys, usage, onSeed }) {
                       <strong>{p.name}</strong>
                       <div className="muted mono">{p.code}</div>
                     </td>
-                    <td>{money(p.price, p.currency)}</td>
+                    <td>
+                      <span className="badge badge-plan">{p.planType || 'standard'}</span>
+                    </td>
+                    <td>
+                      {money(p.price, p.currency)}
+                      {p.originalPrice ? (
+                        <div className="muted" style={{ textDecoration: 'line-through' }}>
+                          {money(p.originalPrice, p.currency)}
+                        </div>
+                      ) : null}
+                    </td>
                     <td>{p.durationDays ? `${p.durationDays} days` : 'Lifetime'}</td>
-                    <td>{p.maxDevices}</td>
-                    <td>{p.oneTime ? 'Yes' : 'No'}</td>
+                    <td>
+                      {p.maxDevices}
+                      {p.seats && p.seats !== p.maxDevices ? ` · seats ${p.seats}` : ''}
+                    </td>
+                    <td>
+                      {p.oneTime ? 'One-time · ' : ''}
+                      {p.requiresStudentId ? 'Student ID' : p.planType === 'team' ? 'Team' : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -430,10 +488,14 @@ function Pricing({ plans, onChange, toast }) {
     name: '',
     code: '',
     price: 199,
+    originalPrice: '',
     currency: 'INR',
     durationDays: 30,
     maxDevices: 1,
+    seats: 1,
     oneTime: false,
+    planType: 'standard',
+    requiresStudentId: false,
     description: '',
     features: '',
   };
@@ -447,8 +509,11 @@ function Pricing({ plans, onChange, toast }) {
       await api.createPlan({
         ...form,
         price: Number(form.price),
+        originalPrice: form.originalPrice === '' ? null : Number(form.originalPrice),
         durationDays: Number(form.durationDays),
         maxDevices: Number(form.maxDevices),
+        seats: Number(form.seats) || Number(form.maxDevices) || 1,
+        requiresStudentId: form.planType === 'student' ? true : Boolean(form.requiresStudentId),
         features: form.features
           ? String(form.features)
               .split(',')
@@ -492,7 +557,10 @@ function Pricing({ plans, onChange, toast }) {
       <div className="topbar">
         <div>
           <h2>Pricing plans</h2>
-          <p>Define price, duration (expiry), device limit, and one-time flags used when generating keys.</p>
+          <p>
+            Standard · Student (ID required) · Trial (7-day) · Team (coaching batch seats). Duration + device limits
+            are enforced on activation.
+          </p>
         </div>
       </div>
 
@@ -519,12 +587,42 @@ function Pricing({ plans, onChange, toast }) {
               />
             </div>
             <div className="field">
+              <label>Plan type</label>
+              <select
+                value={form.planType}
+                onChange={(e) => {
+                  const planType = e.target.value;
+                  setForm({
+                    ...form,
+                    planType,
+                    requiresStudentId: planType === 'student',
+                    oneTime: planType === 'trial' ? true : form.oneTime,
+                  });
+                }}
+              >
+                <option value="standard">Standard</option>
+                <option value="student">Student (discount + ID)</option>
+                <option value="trial">Trial (7-day style)</option>
+                <option value="team">Team / Batch (coaching)</option>
+              </select>
+            </div>
+            <div className="field">
               <label>Price</label>
               <input
                 type="number"
                 min="0"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>Original price (strike, optional)</label>
+              <input
+                type="number"
+                min="0"
+                value={form.originalPrice}
+                onChange={(e) => setForm({ ...form, originalPrice: e.target.value })}
+                placeholder="For student discount display"
               />
             </div>
             <div className="field">
@@ -544,12 +642,27 @@ function Pricing({ plans, onChange, toast }) {
               />
             </div>
             <div className="field">
-              <label>Max devices</label>
+              <label>Max devices (license seats)</label>
               <input
                 type="number"
                 min="1"
                 value={form.maxDevices}
-                onChange={(e) => setForm({ ...form, maxDevices: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    maxDevices: e.target.value,
+                    seats: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <label>Advertised seats</label>
+              <input
+                type="number"
+                min="1"
+                value={form.seats}
+                onChange={(e) => setForm({ ...form, seats: e.target.value })}
               />
             </div>
             <div className="field-check">
@@ -560,6 +673,15 @@ function Pricing({ plans, onChange, toast }) {
                 onChange={(e) => setForm({ ...form, oneTime: e.target.checked })}
               />
               <label htmlFor="oneTimePlan">One-time key (single device use)</label>
+            </div>
+            <div className="field-check">
+              <input
+                id="requiresStudentId"
+                type="checkbox"
+                checked={form.requiresStudentId || form.planType === 'student'}
+                onChange={(e) => setForm({ ...form, requiresStudentId: e.target.checked })}
+              />
+              <label htmlFor="requiresStudentId">Require college / student ID at purchase</label>
             </div>
             <div className="field full">
               <label>Description</label>
@@ -573,7 +695,7 @@ function Pricing({ plans, onChange, toast }) {
               <input
                 value={form.features}
                 onChange={(e) => setForm({ ...form, features: e.target.value })}
-                placeholder="Unlimited snippets, Export, 2 devices"
+                placeholder="Unlimited snippets, Export, Version history, 2 devices"
               />
             </div>
           </div>
@@ -592,10 +714,11 @@ function Pricing({ plans, onChange, toast }) {
             <thead>
               <tr>
                 <th>Plan</th>
+                <th>Type</th>
                 <th>Price</th>
                 <th>Duration</th>
                 <th>Devices</th>
-                <th>One-time</th>
+                <th>Flags</th>
                 <th>Active</th>
                 <th>Actions</th>
               </tr>
@@ -608,10 +731,24 @@ function Pricing({ plans, onChange, toast }) {
                     <div className="muted mono">{p.code}</div>
                     {p.description && <div className="muted">{p.description}</div>}
                   </td>
-                  <td>{money(p.price, p.currency)}</td>
+                  <td>
+                    <span className="badge badge-plan">{p.planType || 'standard'}</span>
+                  </td>
+                  <td>
+                    {money(p.price, p.currency)}
+                    {p.originalPrice ? (
+                      <div className="muted" style={{ textDecoration: 'line-through' }}>
+                        {money(p.originalPrice, p.currency)}
+                      </div>
+                    ) : null}
+                  </td>
                   <td>{p.durationDays ? `${p.durationDays}d` : 'Lifetime'}</td>
                   <td>{p.maxDevices}</td>
-                  <td>{p.oneTime ? 'Yes' : 'No'}</td>
+                  <td>
+                    {p.oneTime ? 'One-time' : 'Multi'}
+                    {p.requiresStudentId ? ' · Student ID' : ''}
+                    {p.planType === 'team' ? ' · Team' : ''}
+                  </td>
                   <td>
                     <span className={`badge ${p.active ? 'badge-active' : 'badge-revoked'}`}>
                       {p.active ? 'active' : 'off'}
@@ -1194,6 +1331,104 @@ function UsageAnalytics({
   );
 }
 
+function Orders({ orders, query, setQuery, onReload, toast }) {
+  return (
+    <>
+      <div className="topbar">
+        <div>
+          <h2>Orders</h2>
+          <p>Website purchases — student ID, college, team batch details (demo checkout).</p>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="filters">
+          <input
+            placeholder="Search order / email / student ID / batch / key"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button className="btn btn-secondary" type="button" onClick={onReload}>
+            Search
+          </button>
+        </div>
+        {orders.length === 0 ? (
+          <div className="empty">No orders yet.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Plan</th>
+                  <th>Student / batch</th>
+                  <th>Key</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((o) => (
+                  <tr key={o._id || o.orderId}>
+                    <td>
+                      <div className="mono">{o.orderId}</div>
+                      <div className="muted">{formatDate(o.createdAt)}</div>
+                      <div className="muted">{money(o.price, o.currency)}</div>
+                    </td>
+                    <td>
+                      <strong>{o.customerName}</strong>
+                      <div className="muted">{o.customerEmail}</div>
+                    </td>
+                    <td>
+                      <span className="badge badge-plan">{o.planName}</span>
+                      <div className="muted mono">{o.planCode}</div>
+                    </td>
+                    <td>
+                      {o.studentId ? (
+                        <>
+                          <div>ID: {o.studentId}</div>
+                          <div className="muted">{o.collegeName || '—'}</div>
+                        </>
+                      ) : null}
+                      {o.batchName ? (
+                        <div>
+                          Batch: {o.batchName}
+                          {o.seats ? ` · ${o.seats} seats` : ''}
+                        </div>
+                      ) : null}
+                      {!o.studentId && !o.batchName ? '—' : null}
+                    </td>
+                    <td>
+                      {o.licenseKey ? (
+                        <button
+                          className="btn btn-secondary btn-sm mono"
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(o.licenseKey);
+                            toast?.('Key copied');
+                          }}
+                        >
+                          {o.licenseKey}
+                        </button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge badge-${o.status === 'paid' ? 'active' : o.status}`}>
+                        {o.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
 function Generate({ plans, generated, setGenerated, toast, onDone }) {
   const [form, setForm] = useState({
     planId: '',
@@ -1203,6 +1438,7 @@ function Generate({ plans, generated, setGenerated, toast, onDone }) {
     expiresAt: '',
     note: '',
     prefix: '',
+    batchName: '',
   });
   const [busy, setBusy] = useState(false);
 
@@ -1231,6 +1467,7 @@ function Generate({ plans, generated, setGenerated, toast, onDone }) {
       if (form.oneTime !== '') body.oneTime = form.oneTime === 'true';
       if (form.expiresAt) body.expiresAt = new Date(form.expiresAt).toISOString();
       if (form.prefix) body.prefix = form.prefix;
+      if (form.batchName.trim()) body.batchName = form.batchName.trim();
 
       const res = await api.generateKeys(body);
       setGenerated(res.data || []);
@@ -1249,7 +1486,8 @@ function Generate({ plans, generated, setGenerated, toast, onDone }) {
         <div>
           <h2>Generate keys</h2>
           <p>
-            Keys inherit pricing plan settings. You can override devices, one-time, and custom expiry.
+            Trial / Student / Team plans supported. For coaching classes: pick Team plan, set batch name, generate
+            many seat keys (up to 200) or use a multi-device master key.
           </p>
         </div>
       </div>
@@ -1269,7 +1507,7 @@ function Generate({ plans, generated, setGenerated, toast, onDone }) {
                 </option>
                 {plans.map((p) => (
                   <option key={p._id} value={p._id}>
-                    {p.name} · {money(p.price, p.currency)} ·{' '}
+                    [{p.planType || 'standard'}] {p.name} · {money(p.price, p.currency)} ·{' '}
                     {p.durationDays ? `${p.durationDays}d` : 'lifetime'} · {p.maxDevices} device(s)
                     {p.oneTime ? ' · one-time' : ''}
                   </option>
@@ -1277,13 +1515,21 @@ function Generate({ plans, generated, setGenerated, toast, onDone }) {
               </select>
             </div>
             <div className="field">
-              <label>How many keys</label>
+              <label>How many keys {selected?.planType === 'team' ? '(batch seats, max 200)' : '(max 100)'}</label>
               <input
                 type="number"
                 min="1"
-                max="100"
+                max={selected?.planType === 'team' ? 200 : 100}
                 value={form.count}
                 onChange={(e) => setForm({ ...form, count: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>Coaching batch name (optional)</label>
+              <input
+                value={form.batchName}
+                onChange={(e) => setForm({ ...form, batchName: e.target.value })}
+                placeholder="e.g. Class 12 JS Batch A"
               />
             </div>
             <div className="field">

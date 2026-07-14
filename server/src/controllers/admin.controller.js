@@ -1,6 +1,7 @@
 const asyncHandler = require('../utils/asyncHandler');
 const ApiResponse = require('../utils/ApiResponse');
 const keyService = require('../services/key.service');
+const purchaseService = require('../services/purchase.service');
 const telemetryService = require('../services/telemetry.service');
 const protectionService = require('../services/protection.service');
 const crashService = require('../services/crash.service');
@@ -74,10 +75,19 @@ const deleteKey = asyncHandler(async (req, res) => {
 });
 
 const seedPlans = asyncHandler(async (req, res) => {
-  const data = await keyService.seedDefaultPlans();
-  return ApiResponse.ok(data, data.seeded ? 'Default plans seeded' : 'Plans already exist').send(
-    res
-  );
+  const force = Boolean(req.body?.force || req.query?.force);
+  const data = await keyService.seedDefaultPlans({ force });
+  const msg = force
+    ? `Default plans force-synced (inserted ${data.inserted}, updated ${data.updated})`
+    : data.seeded
+      ? `Plans synced (inserted ${data.inserted}, updated ${data.updated})`
+      : 'All default plans already present';
+  return ApiResponse.ok(data, msg).send(res);
+});
+
+const listOrders = asyncHandler(async (req, res) => {
+  const data = await purchaseService.listOrders(req.query);
+  return ApiResponse.ok(data).send(res);
 });
 
 const usageOverview = asyncHandler(async (req, res) => {
@@ -129,6 +139,7 @@ module.exports = {
   revokeKeysBulk,
   deleteKey,
   seedPlans,
+  listOrders,
   crashStats,
   listCrashes,
   deleteCrash,

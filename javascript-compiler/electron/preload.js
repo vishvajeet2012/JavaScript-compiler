@@ -1,7 +1,12 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("compiler", {
-  runCode: (code) => ipcRenderer.invoke("run-code", code),
+  runCode: (codeOrPayload, language) => {
+    if (typeof codeOrPayload === "object" && codeOrPayload !== null) {
+      return ipcRenderer.invoke("run-code", codeOrPayload);
+    }
+    return ipcRenderer.invoke("run-code", { code: codeOrPayload, language });
+  },
   stopCode: () => ipcRenderer.invoke("stop-code"),
   isRunning: () => ipcRenderer.invoke("is-running"),
   getSnippets: () => ipcRenderer.invoke("get-snippets"),
@@ -25,6 +30,8 @@ contextBridge.exposeInMainWorld("compiler", {
   getDraft: () => ipcRenderer.invoke("get-draft"),
   clearDraft: () => ipcRenderer.invoke("clear-draft"),
   exportFile: (data) => ipcRenderer.invoke("export-file", data),
+  getVersions: (snippetId) => ipcRenderer.invoke("get-versions", snippetId),
+  restoreVersion: (versionId) => ipcRenderer.invoke("restore-version", versionId),
   // Version + auto-update
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getUpdateStatus: () => ipcRenderer.invoke("get-update-status"),

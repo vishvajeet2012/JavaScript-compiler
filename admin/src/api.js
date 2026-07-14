@@ -45,7 +45,16 @@ export const api = {
     }),
 
   stats: () => request('/api/v1/admin/stats'),
-  seed: () => request('/api/v1/admin/seed', { method: 'POST' }),
+  seed: (force = false) =>
+    request('/api/v1/admin/seed', {
+      method: 'POST',
+      body: JSON.stringify({ force }),
+    }),
+
+  listOrders: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return request(`/api/v1/admin/orders${q ? `?${q}` : ''}`);
+  },
 
   listPlans: () => request('/api/v1/admin/plans'),
   createPlan: (body) =>
