@@ -1,4 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+/** Production Express API (Vercel) when VITE_API_URL is unset */
+const API_BASE =
+  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ||
+  'https://java-script-server.vercel.app';
 
 function getToken() {
   return localStorage.getItem('admin_token') || '';

@@ -63,9 +63,15 @@ Health should return JSON `success: true`.
 
 | App | Setting |
 |-----|---------|
-| Next.js (`jsplay-kappa`) | `NEXT_PUBLIC_API_URL=https://YOUR-API.vercel.app` |
-| Admin Vite | `VITE_API_URL=https://YOUR-API.vercel.app` |
-| Electron | Activation server URL = `https://YOUR-API.vercel.app` |
+| Next.js (`jsplay-kappa`) | `NEXT_PUBLIC_API_URL=https://java-script-server.vercel.app` |
+| Admin Vite | `VITE_API_URL=https://java-script-server.vercel.app` |
+| Electron | Activation server URL = `https://java-script-server.vercel.app` |
+
+Production API (default fallback in code):
+
+```text
+https://java-script-server.vercel.app
+```
 
 ## 7. Admin seed after first deploy
 

@@ -14,6 +14,10 @@ const DEFAULT_CORS = [
   'http://127.0.0.1:5173',
   // Production Next.js frontend
   'https://jsplay-kappa.vercel.app',
+  'https://vishvajeetshukla.in',
+  'https://www.vishvajeetshukla.in',
+  // Production API origin (self / tools)
+  'https://java-script-server.vercel.app',
 ].join(',');
 
 /**

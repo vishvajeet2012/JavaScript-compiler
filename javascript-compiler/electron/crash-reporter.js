@@ -14,7 +14,7 @@ const QUEUE_KEY = "crash_report_queue";
 let started = false;
 
 function serverBase() {
-  return db.getSetting("activation_server", "http://localhost:5000").replace(/\/$/, "");
+  return db.getSetting("activation_server", "https://java-script-server.vercel.app").replace(/\/$/, "");
 }
 
 function baseMeta() {

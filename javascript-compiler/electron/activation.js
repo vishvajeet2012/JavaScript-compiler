@@ -3,7 +3,8 @@ const crypto = require("crypto");
 const { getActivation, saveActivation, clearActivation } = require("./db");
 
 // Main Express server (MongoDB-backed activation + admin keys)
-const DEFAULT_SERVER = "http://localhost:5000";
+// Production Vercel API — override in Settings if needed
+const DEFAULT_SERVER = "https://java-script-server.vercel.app";
 const FREE_SNIPPET_LIMIT = 5;
 
 function getMachineId() {

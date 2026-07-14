@@ -301,7 +301,7 @@ const DEFAULT_SETTINGS = {
   auto_save_interval: "30",
   execution_timeout: "5",
   editor_theme: "vs-dark",
-  activation_server: "http://localhost:5000",
+  activation_server: "https://java-script-server.vercel.app",
 };
 
 function getAllSettings() {

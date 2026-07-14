@@ -329,7 +329,8 @@ async function openSettings() {
   document.getElementById("set-autosave-interval").value = settings.auto_save_interval || "30";
   document.getElementById("set-timeout").value = settings.execution_timeout || "5";
   document.getElementById("set-theme").value = settings.editor_theme || "vs-dark";
-  document.getElementById("set-server").value = settings.activation_server || "http://localhost:5000";
+  document.getElementById("set-server").value =
+    settings.activation_server || "https://java-script-server.vercel.app";
   try {
     const version = await window.compiler.getAppVersion();
     document.getElementById("settings-version").textContent = `v${version}`;

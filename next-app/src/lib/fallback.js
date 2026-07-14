@@ -2,6 +2,10 @@
  * Fallback landing content when server is offline
  * Mirrors server getLandingContent shape
  */
+
+/** Production Express API (Vercel) — used when NEXT_PUBLIC_API_URL is unset */
+export const FALLBACK_API_URL = 'https://java-script-server.vercel.app';
+
 export const FALLBACK_LANDING = {
   brand: {
     name: 'JS Compiler',

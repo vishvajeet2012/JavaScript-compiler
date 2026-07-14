@@ -1,10 +1,13 @@
 /**
  * API client for Express server (server/)
  * Base URL comes from NEXT_PUBLIC_API_URL
+ * Fallback: production Vercel API (see FALLBACK_API_URL in fallback.js)
  */
 
+import { FALLBACK_API_URL } from './fallback';
+
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:5000';
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || FALLBACK_API_URL;
 
 const API_PREFIX = '/api/v1';
 
