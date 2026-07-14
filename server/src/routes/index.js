@@ -10,6 +10,29 @@ const config = require('../config');
 const router = Router();
 
 /**
+ * Root — browser-friendly API landing (fixes GET / 404 on Vercel)
+ */
+router.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'JS Compiler API is running',
+    service: 'java-script-server',
+    publisher: 'vishvajeetshukla.in',
+    endpoints: {
+      health: `${config.apiPrefix}/health`,
+      info: `${config.apiPrefix}/info`,
+      landing: `${config.apiPrefix}/landing`,
+      plans: `${config.apiPrefix}/plans`,
+      purchase: `POST ${config.apiPrefix}/purchase`,
+      activate: 'POST /api/activate',
+      verify: 'POST /api/verify',
+      admin: `${config.apiPrefix}/admin/*`,
+    },
+    docs: 'https://github.com/vishvajeet2012/JavaScript-compiler',
+  });
+});
+
+/**
  * Route aggregator
  * Mounts all route modules under the API version prefix
  */
