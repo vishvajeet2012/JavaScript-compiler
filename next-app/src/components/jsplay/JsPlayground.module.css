@@ -2,10 +2,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background:
-    radial-gradient(900px 420px at 12% -10%, rgba(14, 165, 233, 0.12), transparent 55%),
-    radial-gradient(700px 380px at 90% 0%, rgba(124, 58, 237, 0.1), transparent 50%),
-    var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-text-primary);
 }
 
@@ -40,10 +37,8 @@
   border-radius: 9px;
   overflow: hidden;
   flex-shrink: 0;
-  background: #05060c;
-  box-shadow:
-    0 0 0 1px rgba(56, 189, 248, 0.28),
-    0 4px 14px rgba(14, 165, 233, 0.25);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
 }
 
 .logoWrap img {
@@ -97,15 +92,15 @@
 .navCta {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #fff;
+  color: #09090b;
   padding: 0.45rem 0.9rem;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #7c3aed, #2563eb);
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
+  background: #fafafa;
+  border: 1px solid #fafafa;
 }
 
 .navCta:hover {
-  filter: brightness(1.08);
+  background: #e4e4e7;
 }
 
 /* ── Main layout ────────────────────────────────────── */
@@ -162,15 +157,15 @@
 }
 
 .badgeAccent {
-  border-color: rgba(124, 58, 237, 0.4);
-  color: #c4b5fd;
-  background: rgba(124, 58, 237, 0.12);
+  border-color: var(--color-border);
+  color: var(--color-emerald);
+  background: var(--color-bg-elevated);
 }
 
 .badgeOk {
-  border-color: rgba(34, 197, 94, 0.35);
-  color: #86efac;
-  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--color-border);
+  color: var(--color-emerald);
+  background: var(--color-bg-elevated);
 }
 
 /* ── Toolbar ────────────────────────────────────────── */
@@ -205,14 +200,13 @@
 }
 
 .btnPrimary {
-  color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
-  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.28);
+  color: #09090b;
+  background: #fafafa;
+  border-color: #fafafa;
 }
 
 .btnPrimary:hover:not(:disabled) {
-  filter: brightness(1.07);
-  transform: translateY(-1px);
+  background: #e4e4e7;
 }
 
 .btnDanger {
@@ -348,7 +342,7 @@
 }
 
 .editor:focus {
-  background: rgba(124, 58, 237, 0.03);
+  background: var(--color-bg-hover);
 }
 
 .console {
@@ -387,7 +381,7 @@
 }
 
 .logLog .logTag {
-  color: #93c5fd;
+  color: var(--color-text-secondary);
 }
 .logWarn .logTag {
   color: #fde68a;
@@ -396,10 +390,10 @@
   color: #fca5a5;
 }
 .logResult .logTag {
-  color: #86efac;
+  color: var(--color-emerald);
 }
 .logInfo .logTag {
-  color: #c4b5fd;
+  color: var(--color-emerald);
 }
 
 .logText {
@@ -424,11 +418,11 @@
 }
 
 .footer a {
-  color: #a78bfa;
+  color: var(--color-emerald);
 }
 
 .footer a:hover {
-  color: #c4b5fd;
+  color: var(--color-emerald-muted);
   text-decoration: underline;
 }
 

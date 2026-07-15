@@ -1,43 +1,42 @@
 .section {
-  padding: 4rem 1.25rem;
+  padding: 4rem 1.5rem;
 }
 
 .container {
-  max-width: 900px;
+  max-width: 880px;
   margin: 0 auto;
 }
 
 .eyebrow {
-  color: #34d399;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--color-emerald);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  margin: 0 0 0.5rem;
-  text-align: center;
+  margin: 0 0 0.45rem;
+  font-family: var(--font-mono);
 }
 
 .title {
-  margin: 0 0 0.5rem;
-  text-align: center;
-  font-size: clamp(1.6rem, 3vw, 2.1rem);
-  letter-spacing: -0.02em;
+  margin: 0 0 0.45rem;
+  font-size: clamp(1.5rem, 3vw, 1.85rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
 }
 
 .subtitle {
-  margin: 0 auto 1.75rem;
+  margin: 0 0 1.75rem;
   max-width: 48ch;
-  text-align: center;
-  color: var(--color-text-secondary, #a1a1a1);
+  color: var(--color-text-secondary);
   line-height: 1.55;
   font-size: 0.95rem;
 }
 
 .tableWrap {
   overflow-x: auto;
-  border: 1px solid var(--color-border, #222);
-  border-radius: 16px;
-  background: rgba(12, 12, 16, 0.9);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
 }
 
 .table {
@@ -48,23 +47,24 @@
 
 .table th,
 .table td {
-  padding: 0.85rem 1rem;
+  padding: 0.8rem 1rem;
   text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
 }
 
 .table thead th {
-  background: rgba(16, 185, 129, 0.1);
-  color: #d1fae5;
-  font-size: 0.8rem;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-tertiary);
+  font-size: 0.72rem;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .table tbody th {
   font-weight: 500;
-  color: var(--color-text-primary, #ededed);
+  color: var(--color-text-primary);
 }
 
 .table tbody tr:last-child th,
@@ -84,27 +84,26 @@
 }
 
 .yes {
-  color: #86efac;
-  font-weight: 700;
-  font-size: 1.05rem;
+  color: var(--color-emerald);
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .no {
-  color: #555;
+  color: #3f3f46;
 }
 
 .text {
-  color: #a7f3d0;
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: var(--color-emerald);
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
 .ctaRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
-  justify-content: center;
-  margin-top: 1.5rem;
+  gap: 0.55rem;
+  margin-top: 1.35rem;
 }
 
 .ctaPrimary,
@@ -113,25 +112,40 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.65rem 1.1rem;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 550;
+  font-size: 0.875rem;
   text-decoration: none;
 }
 
 .ctaPrimary {
-  color: #fff;
-  background: linear-gradient(135deg, #10b981, #059669);
+  color: #09090b;
+  background: #fafafa;
+  border: 1px solid #fafafa;
+}
+
+.ctaPrimary:hover {
+  background: #e4e4e7;
 }
 
 .ctaSecondary {
-  color: #d1fae5;
-  border: 1px solid rgba(16, 185, 129, 0.45);
-  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  background: transparent;
+}
+
+.ctaSecondary:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
 }
 
 .ctaGhost {
-  color: #6ee7b7;
-  border: 1px solid #333;
+  color: var(--color-emerald);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.ctaGhost:hover {
+  color: var(--color-emerald-muted);
 }

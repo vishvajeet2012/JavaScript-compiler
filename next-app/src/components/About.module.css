@@ -1,89 +1,78 @@
-/* ========== About Section ========== */
 .section {
-  padding: var(--space-24) var(--space-6);
+  padding: 4rem 1.5rem;
 }
 
 .container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-16);
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 2.5rem;
   align-items: start;
   max-width: var(--max-width);
   margin: 0 auto;
 }
 
-/* --- Left: Content --- */
 .content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: 0.85rem;
 }
 
 .title {
-  font-size: var(--text-4xl);
-  font-weight: 800;
+  font-size: clamp(1.5rem, 3vw, 1.85rem);
+  font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--color-text-primary);
-  margin-bottom: var(--space-2);
 }
 
 .description {
-  font-size: var(--text-base);
+  font-size: 0.95rem;
   color: var(--color-text-secondary);
-  line-height: 1.8;
+  line-height: 1.7;
 }
 
-/* --- Right: Tech Stack --- */
 .stackSide {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: 0.85rem;
 }
 
 .stackTitle {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
 }
 
 .pills {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: 0.4rem;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--color-text-secondary);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  transition: color var(--transition-fast),
-              border-color var(--transition-fast),
-              background var(--transition-fast),
-              box-shadow var(--transition-fast);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
   cursor: default;
 }
 
 .pill:hover {
   color: var(--color-text-primary);
-  border-color: rgba(0, 112, 243, 0.4);
-  background: var(--color-accent-light);
-  box-shadow: 0 0 20px rgba(0, 112, 243, 0.08);
+  border-color: var(--color-border-hover);
 }
 
-/* ========== Responsive ========== */
 @media (max-width: 768px) {
   .container {
     grid-template-columns: 1fr;
-    gap: var(--space-10);
-  }
-
-  .title {
-    font-size: var(--text-3xl);
+    gap: 1.75rem;
   }
 }

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "JS Compiler | Offline Desktop JavaScript IDE",
   description:
-    "Awwwards-inspired dark emerald experience. Write, run, and save JavaScript offline — Free & Pro, multi-OS, auto-update.",
+    "Write, run, and save JavaScript offline. Free & Pro plans, multi-OS installers, and auto-update.",
   keywords: [
     "JavaScript Compiler",
     "Desktop App",

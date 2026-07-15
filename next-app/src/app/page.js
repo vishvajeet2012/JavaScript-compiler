@@ -99,7 +99,6 @@ export default async function Home() {
   return (
     <SmoothScroll>
       <div className={styles.page}>
-        <div className="noise-overlay" aria-hidden />
         <PromoPopup />
         <Header
           brand={landing.brand}

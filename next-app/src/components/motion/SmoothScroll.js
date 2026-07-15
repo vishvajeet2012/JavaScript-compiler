@@ -8,15 +8,15 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * Lenis smooth scroll + GSAP ScrollTrigger reveal for [data-reveal] elements.
+ * Lenis smooth scroll + restrained GSAP reveals (no blur / glow spam).
  */
 export default function SmoothScroll({ children }) {
   useEffect(() => {
     const lenis = new Lenis({
-      duration: 1.15,
+      duration: 0.95,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
-      touchMultiplier: 1.2,
+      touchMultiplier: 1.1,
     });
 
     lenis.on('scroll', ScrollTrigger.update);
@@ -27,7 +27,6 @@ export default function SmoothScroll({ children }) {
     gsap.ticker.add(ticker);
     gsap.ticker.lagSmoothing(0);
 
-    // Anchor links via Lenis
     const onClick = (e) => {
       const a = e.target.closest('a[href^="#"]');
       if (!a) return;
@@ -36,32 +35,28 @@ export default function SmoothScroll({ children }) {
       const el = document.querySelector(id);
       if (!el) return;
       e.preventDefault();
-      lenis.scrollTo(el, { offset: -80, duration: 1.2 });
-      // replaceState (not pushState) — avoids Chrome Back hopping every #section
+      lenis.scrollTo(el, { offset: -72, duration: 1.05 });
       if (window.location.hash !== id) {
         history.replaceState(null, '', id);
       }
     };
     document.addEventListener('click', onClick);
 
-    // Reveal animations
     const ctx = gsap.context(() => {
       gsap.utils.toArray('[data-reveal]').forEach((el) => {
         const delay = Number(el.getAttribute('data-reveal-delay') || 0);
-        const y = Number(el.getAttribute('data-reveal-y') || 48);
         gsap.fromTo(
           el,
-          { opacity: 0, y, filter: 'blur(6px)' },
+          { opacity: 0, y: 14 },
           {
             opacity: 1,
             y: 0,
-            filter: 'blur(0px)',
-            duration: 1.05,
+            duration: 0.55,
             delay,
-            ease: 'power3.out',
+            ease: 'power2.out',
             scrollTrigger: {
               trigger: el,
-              start: 'top 88%',
+              start: 'top 92%',
               toggleActions: 'play none none none',
             },
           },
@@ -72,16 +67,16 @@ export default function SmoothScroll({ children }) {
         const kids = parent.querySelectorAll('[data-reveal-child]');
         gsap.fromTo(
           kids,
-          { opacity: 0, y: 36 },
+          { opacity: 0, y: 20 },
           {
             opacity: 1,
             y: 0,
-            duration: 0.85,
-            stagger: 0.08,
-            ease: 'power3.out',
+            duration: 0.65,
+            stagger: 0.06,
+            ease: 'power2.out',
             scrollTrigger: {
               trigger: parent,
-              start: 'top 85%',
+              start: 'top 88%',
               toggleActions: 'play none none none',
             },
           },
@@ -89,8 +84,7 @@ export default function SmoothScroll({ children }) {
       });
     });
 
-    // Refresh after fonts/images
-    const t = setTimeout(() => ScrollTrigger.refresh(), 400);
+    const t = setTimeout(() => ScrollTrigger.refresh(), 350);
 
     return () => {
       clearTimeout(t);

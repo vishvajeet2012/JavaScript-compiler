@@ -1,9 +1,7 @@
 .page {
   min-height: 100vh;
-  background:
-    radial-gradient(800px 360px at 15% -10%, rgba(16, 185, 129, 0.12), transparent 55%),
-    var(--color-bg, #000);
-  color: var(--color-text-primary, #ededed);
+  background: var(--color-bg, #09090b);
+  color: var(--color-text-primary, #fafafa);
   padding: 1.5rem 1.25rem 3.5rem;
 }
 
@@ -15,7 +13,7 @@
 .back {
   display: inline-block;
   font-size: 0.85rem;
-  color: #34d399;
+  color: var(--color-emerald, #34d399);
   margin-bottom: 0.75rem;
 }
 
@@ -29,7 +27,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #34d399;
+  color: var(--color-emerald, #34d399);
 }
 
 .header h1 {
@@ -54,7 +52,7 @@
 }
 
 .links a {
-  color: #6ee7b7;
+  color: var(--color-emerald, #34d399);
 }
 
 .links a:hover {
@@ -105,7 +103,7 @@
   letter-spacing: 0.04em;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  color: #86efac;
+  color: var(--color-emerald, #34d399);
   border: 1px solid rgba(34, 197, 94, 0.35);
   background: rgba(34, 197, 94, 0.1);
 }
@@ -155,10 +153,10 @@
 }
 
 .secAdded h3 {
-  color: #86efac;
+  color: var(--color-emerald, #34d399);
 }
 .secFixed h3 {
-  color: #6ee7b7;
+  color: var(--color-emerald, #34d399);
 }
 .secChanged h3 {
   color: #fde68a;
@@ -167,7 +165,7 @@
   color: #fca5a5;
 }
 .secNotes h3 {
-  color: #a7f3d0;
+  color: var(--color-emerald-muted, #6ee7b7);
 }
 
 .emptyNotes {

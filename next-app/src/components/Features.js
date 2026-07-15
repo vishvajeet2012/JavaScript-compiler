@@ -18,7 +18,7 @@ export default function Features({ features = [] }) {
         <div className={styles.header}>
           <h2 className={styles.title}>Features</h2>
           <p className={styles.subtitle}>
-            Everything you need to write, run, and organize JavaScript
+            Built for daily coding — not demos.
           </p>
         </div>
 
