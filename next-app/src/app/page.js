@@ -11,11 +11,15 @@ import Footer from '@/components/Footer';
 import { getLanding, getHealth } from '@/lib/api';
 import { FALLBACK_LANDING } from '@/lib/fallback';
 import { getLatestRelease } from '@/lib/releases';
+import {
+  getManagedHomeReleases,
+  homeReleasesToDownloadBlock,
+} from '@/lib/managed-releases';
 
 /**
- * Merge live GitHub latest installers (Win/Linux/Mac) into landing download block.
+ * Merge live GitHub latest installers (fallback) into landing download block.
  */
-async function withLatestDownloads(landing) {
+async function withGithubDownloads(landing) {
   try {
     const release = await getLatestRelease();
     const published = release.publishedAt
@@ -27,7 +31,7 @@ async function withLatestDownloads(landing) {
       download: {
         ...landing.download,
         title: landing.download?.title || 'Download JS Compiler',
-        subtitle: `Latest build for Windows, Linux, and macOS · ${release.tag}`,
+        subtitle: `Latest GitHub build · ${release.tag}`,
         version: release.version,
         tag: release.tag,
         htmlUrl: release.htmlUrl,
@@ -38,34 +42,37 @@ async function withLatestDownloads(landing) {
             date: published,
             items: [
               `Latest release ${release.tag}`,
-              'Windows NSIS · Linux AppImage/deb · macOS DMG (Intel + Apple Silicon)',
+              'Windows · Linux · macOS from GitHub Releases',
               'In-app auto-update after install',
-              'See GitHub release notes for full changelog',
             ],
           },
-          ...(Array.isArray(landing.download?.changelog)
-            ? landing.download.changelog.filter(
-                (c) => c.version !== release.version && c.version !== 'latest',
-              )
-            : []),
         ],
         requirements: [
           'Windows 10/11 (64-bit), Linux x64, or macOS 11+',
           'Internet only for activation & updates',
           'Works fully offline for coding',
         ],
+        source: 'github',
       },
     };
   } catch (err) {
-    console.error('[home] latest release fetch failed', err?.message || err);
+    console.error('[home] github release fetch failed', err?.message || err);
     return landing;
   }
 }
 
 /**
- * Home / Landing page — data from Express server (server/)
- * Download section always prefers live GitHub latest assets.
+ * Prefer Admin-managed isHome releases; else GitHub latest.
  */
+async function withDownloadSection(landing) {
+  const managed = await getManagedHomeReleases();
+  const block = homeReleasesToDownloadBlock(managed);
+  if (block) {
+    return { ...landing, download: { ...landing.download, ...block } };
+  }
+  return withGithubDownloads(landing);
+}
+
 export default async function Home() {
   let landing = FALLBACK_LANDING;
   let health = null;
@@ -90,7 +97,7 @@ export default async function Home() {
     serverOnline = false;
   }
 
-  landing = await withLatestDownloads(landing);
+  landing = await withDownloadSection(landing);
 
   return (
     <div className={styles.page}>

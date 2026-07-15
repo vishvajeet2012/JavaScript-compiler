@@ -51,7 +51,19 @@ Skip release/tag **only** if the user clearly says one of:
 - `no push` / `mat push`
 - `local only` / `sirf local`
 
-Otherwise: **release + push**.
+Otherwise for **shipping product code**: **release + push**.
+
+### Rule R4 — Do not commit/push unless the task implies ship (STRICT)
+
+**Never** create a git commit or push just because you edited docs/rules/README.
+
+| User said | Commit? | Push? | Tag? |
+|-----------|---------|-------|------|
+| “rules bana” / “README update” / “docs” only | **No** (unless they also say commit/push) | No | No |
+| “fix bug / feature / release / push / ship” | Yes | Yes | Desktop yes |
+| “commit kar” / “push kar” | Yes (what they asked) | If they said push | Only if release needed |
+
+If you only update `AGENTS.md`, `CLAUDE.md`, or `README.md`, **leave changes uncommitted** until the user asks to commit/push.
 
 ---
 

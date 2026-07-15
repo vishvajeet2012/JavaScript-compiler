@@ -112,6 +112,33 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // ── Releases (home line + history + R2) ─────────────────
+  listReleases: () => request('/api/v1/admin/releases'),
+  createRelease: (body) =>
+    request('/api/v1/admin/releases', { method: 'POST', body: JSON.stringify(body) }),
+  updateRelease: (id, body) =>
+    request(`/api/v1/admin/releases/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteRelease: (id) =>
+    request(`/api/v1/admin/releases/${id}`, { method: 'DELETE' }),
+  upsertReleasePlatform: (id, body) =>
+    request(`/api/v1/admin/releases/${id}/platforms`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  presignReleaseUpload: (id, body) =>
+    request(`/api/v1/admin/releases/${id}/presign`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  confirmReleaseUpload: (id, body) =>
+    request(`/api/v1/admin/releases/${id}/confirm-upload`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   /** R2 download counters from Next.js /api/download/stats */
   downloadStats: async () => {
     const token = getToken();

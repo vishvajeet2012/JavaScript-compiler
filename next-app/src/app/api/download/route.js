@@ -19,9 +19,29 @@ import {
   recordSuccessfulDownload,
 } from '@/lib/download-limiter';
 import { getLatestRelease, getPlatformDownloadUrl } from '@/lib/releases';
+import { FALLBACK_API_URL } from '@/lib/fallback';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || FALLBACK_API_URL;
+
+/** Admin-managed home release URL (R2 or external) from Express API */
+async function getManagedPlatformUrl(platform) {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/releases/download-resolve?platform=${encodeURIComponent(platform)}`,
+      { cache: 'no-store' },
+    );
+    if (!res.ok) return null;
+    const body = await res.json();
+    if (body?.success && body?.data?.url) return body.data;
+  } catch (err) {
+    console.warn('[download] managed resolve failed', err?.message || err);
+  }
+  return null;
+}
 
 function jsonError(status, message, extra = {}) {
   return NextResponse.json(
@@ -104,8 +124,18 @@ export async function GET(request) {
     }
   }
 
-  // ── Optional: Windows via R2 only when explicitly preferred ──
-  // Default is always GitHub *latest* so the site never sticks on an old R2 upload.
+  // ── 1) Admin-managed release (isHome + R2/URL from Admin panel) ──
+  const managed = await getManagedPlatformUrl(platform);
+  if (managed?.url) {
+    await tryRecordStats(ip, request);
+    return redirectDownload(managed.url, {
+      'X-Download-Source': managed.source || 'managed',
+      'X-Download-Platform': platform,
+      ...(managed.version ? { 'X-Download-Version': String(managed.version) } : {}),
+    });
+  }
+
+  // ── 2) Optional local Next.js R2 (legacy) when DOWNLOAD_PREFER_R2=1 ──
   const preferR2 =
     process.env.DOWNLOAD_PREFER_R2 === '1' ||
     process.env.DOWNLOAD_PREFER_R2 === 'true';

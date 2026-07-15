@@ -14,6 +14,7 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
     { label: 'Home', href: '#home' },
     { label: 'JS Play', href: '/jsplay' },
     { label: 'Download', href: '#download' },
+    { label: 'Releases', href: '/releases' },
     { label: 'Pricing', href: '#pricing' },
     { label: 'Features', href: '#features' },
     { label: 'About', href: '#about' },

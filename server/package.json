@@ -13,10 +13,16 @@
     "vercel-build": "echo 'No build step — serverless api/index.js'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["express", "vercel", "js-compiler"],
+  "keywords": [
+    "express",
+    "vercel",
+    "js-compiler"
+  ],
   "author": "vishvajeetshukla.in",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1087.0",
+    "@aws-sdk/s3-request-presigner": "^3.1087.0",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

@@ -5,6 +5,7 @@ const adminRoutes = require('./admin.routes');
 const activationRoutes = require('./activation.routes');
 const telemetryRoutes = require('./telemetry.routes');
 const crashRoutes = require('./crash.routes');
+const releaseRoutes = require('./release.routes');
 const config = require('../config');
 
 const router = Router();
@@ -23,6 +24,8 @@ router.get('/', (req, res) => {
       info: `${config.apiPrefix}/info`,
       landing: `${config.apiPrefix}/landing`,
       plans: `${config.apiPrefix}/plans`,
+      releasesHome: `${config.apiPrefix}/releases/home`,
+      releasesHistory: `${config.apiPrefix}/releases/history`,
       purchase: `POST ${config.apiPrefix}/purchase`,
       activate: 'POST /api/activate',
       verify: 'POST /api/verify',
@@ -38,6 +41,7 @@ router.get('/', (req, res) => {
  */
 router.use(`${config.apiPrefix}/health`, healthRoutes);
 router.use(`${config.apiPrefix}/admin`, adminRoutes);
+router.use(`${config.apiPrefix}/releases`, releaseRoutes);
 router.use(`${config.apiPrefix}`, apiRoutes);
 
 // Electron app activation + silent usage telemetry + crashes

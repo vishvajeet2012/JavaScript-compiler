@@ -10,5 +10,7 @@
 4. **Website downloads always follow GitHub latest** — without a tag, users keep getting the old installer.
 5. **Never commit secrets** (`.env.local`, R2 keys, tokens).
 6. Skip release/push **only** if the user explicitly says not to.
+7. **Docs / rules / README-only edits → do NOT commit or push** unless the user asks.
 
-Full rules, checklist, and version policy: **`AGENTS.md`**.
+Full rules, checklist, and version policy: **`AGENTS.md`**.  
+Product overview for humans: **`README.md`**.

@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const adminAuth = require('../middleware/adminAuth');
 const adminController = require('../controllers/admin.controller');
+const releaseController = require('../controllers/release.controller');
 
 const router = Router();
 
@@ -9,6 +10,16 @@ router.post('/login', adminController.login);
 
 // Protected admin routes
 router.use(adminAuth);
+
+// Releases (home line + history + R2)
+router.get('/releases', releaseController.adminList);
+router.post('/releases', releaseController.adminCreate);
+router.get('/releases/:id', releaseController.adminGet);
+router.patch('/releases/:id', releaseController.adminUpdate);
+router.delete('/releases/:id', releaseController.adminDelete);
+router.post('/releases/:id/platforms', releaseController.adminUpsertPlatform);
+router.post('/releases/:id/presign', releaseController.adminPresign);
+router.post('/releases/:id/confirm-upload', releaseController.adminConfirmUpload);
 
 router.get('/stats', adminController.stats);
 router.post('/seed', adminController.seedPlans);
