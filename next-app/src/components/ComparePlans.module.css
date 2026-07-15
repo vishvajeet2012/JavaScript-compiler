@@ -8,7 +8,7 @@
 }
 
 .eyebrow {
-  color: #a78bfa;
+  color: #34d399;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -55,8 +55,8 @@
 }
 
 .table thead th {
-  background: rgba(124, 58, 237, 0.1);
-  color: #e9d5ff;
+  background: rgba(16, 185, 129, 0.1);
+  color: #d1fae5;
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -94,7 +94,7 @@
 }
 
 .text {
-  color: #c4b5fd;
+  color: #a7f3d0;
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -122,16 +122,16 @@
 
 .ctaPrimary {
   color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  background: linear-gradient(135deg, #10b981, #059669);
 }
 
 .ctaSecondary {
-  color: #e9d5ff;
-  border: 1px solid rgba(124, 58, 237, 0.45);
-  background: rgba(124, 58, 237, 0.12);
+  color: #d1fae5;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
 }
 
 .ctaGhost {
-  color: #93c5fd;
+  color: #6ee7b7;
   border: 1px solid #333;
 }

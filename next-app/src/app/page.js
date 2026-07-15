@@ -1,4 +1,5 @@
 import styles from './page.module.css';
+import SmoothScroll from '@/components/motion/SmoothScroll';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import Download from '@/components/Download';
@@ -18,9 +19,6 @@ import {
   homeReleasesToDownloadBlock,
 } from '@/lib/managed-releases';
 
-/**
- * Merge live GitHub latest installers (fallback) into landing download block.
- */
 async function withGithubDownloads(landing) {
   try {
     const release = await getLatestRelease();
@@ -63,9 +61,6 @@ async function withGithubDownloads(landing) {
   }
 }
 
-/**
- * Prefer Admin-managed isHome releases; else GitHub latest.
- */
 async function withDownloadSection(landing) {
   const managed = await getManagedHomeReleases();
   const block = homeReleasesToDownloadBlock(managed);
@@ -102,31 +97,48 @@ export default async function Home() {
   landing = await withDownloadSection(landing);
 
   return (
-    <div className={styles.page}>
-      <PromoPopup />
-      <Header
-        brand={landing.brand}
-        serverOnline={serverOnline}
-        health={health}
-      />
-      <main className={styles.main}>
-        <Hero data={landing.hero} />
-        <hr className={styles.divider} />
-        <Download data={landing.download} />
-        <hr className={styles.divider} />
-        <ComparePlans />
-        <hr className={styles.divider} />
-        <Pricing />
-        <hr className={styles.divider} />
-        <Features features={landing.features} />
-        <hr className={styles.divider} />
-        <Stats stats={landing.stats} />
-        <hr className={styles.divider} />
-        <About data={landing.about} />
-        <hr className={styles.divider} />
-        <Contact data={landing.contact} serverOnline={serverOnline} />
-      </main>
-      <Footer brand={landing.brand} />
-    </div>
+    <SmoothScroll>
+      <div className={styles.page}>
+        <div className="noise-overlay" aria-hidden />
+        <PromoPopup />
+        <Header
+          brand={landing.brand}
+          serverOnline={serverOnline}
+          health={health}
+        />
+        <main className={styles.main}>
+          <Hero data={landing.hero} />
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <Download data={landing.download} />
+          </div>
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <ComparePlans />
+          </div>
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <Pricing />
+          </div>
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <Features features={landing.features} />
+          </div>
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <Stats stats={landing.stats} />
+          </div>
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <About data={landing.about} />
+          </div>
+          <hr className={styles.divider} />
+          <div data-reveal>
+            <Contact data={landing.contact} serverOnline={serverOnline} />
+          </div>
+        </main>
+        <Footer brand={landing.brand} />
+      </div>
+    </SmoothScroll>
   );
 }

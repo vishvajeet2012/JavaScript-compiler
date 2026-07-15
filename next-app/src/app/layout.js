@@ -12,20 +12,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "JS Compiler | Desktop JavaScript Compiler",
+  title: "JS Compiler | Offline Desktop JavaScript IDE",
   description:
-    "Write, run, and save JavaScript snippets offline with folders, templates, local DB, and Pro activation.",
+    "Awwwards-inspired dark emerald experience. Write, run, and save JavaScript offline — Free & Pro, multi-OS, auto-update.",
   keywords: [
     "JavaScript Compiler",
     "Desktop App",
     "Electron",
     "JS IDE",
     "Code Snippets",
+    "offline JavaScript",
   ],
   openGraph: {
-    title: "JS Compiler | Desktop JavaScript Compiler",
+    title: "JS Compiler | Offline Desktop JavaScript IDE",
     description:
-      "Write, run, and save JavaScript snippets offline with folders, templates, and Pro activation.",
+      "Write, run, and save JavaScript offline with Pro languages, npm packages, and auto-update.",
     type: "website",
   },
 };

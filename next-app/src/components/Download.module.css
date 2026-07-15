@@ -14,7 +14,7 @@
 }
 
 .eyebrow {
-  color: #a78bfa;
+  color: #34d399;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -40,9 +40,9 @@
   display: inline-flex;
   padding: 0.3rem 0.75rem;
   border-radius: 999px;
-  background: rgba(124, 58, 237, 0.15);
-  border: 1px solid rgba(124, 58, 237, 0.35);
-  color: #c4b5fd;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #a7f3d0;
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -82,7 +82,7 @@
 }
 
 .card:hover:not(:disabled) {
-  border-color: rgba(124, 58, 237, 0.5);
+  border-color: rgba(16, 185, 129, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
@@ -129,7 +129,7 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: rgba(124, 58, 237, 0.12);
+  background: rgba(16, 185, 129, 0.12);
 }
 
 .cardTop h3 {
@@ -149,7 +149,7 @@
   justify-content: center;
   padding: 0.65rem 1.1rem;
   border-radius: 10px;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  background: linear-gradient(135deg, #10b981, #047857);
   color: #fff;
   font-weight: 600;
   font-size: 0.92rem;

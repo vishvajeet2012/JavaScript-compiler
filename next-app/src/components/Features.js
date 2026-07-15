@@ -22,12 +22,12 @@ export default function Features({ features = [] }) {
           </p>
         </div>
 
-        <div className={styles.grid}>
-          {list.map((feature, index) => (
+        <div className={styles.grid} data-reveal-stagger>
+          {list.map((feature) => (
             <div
               key={feature.title}
               className={styles.card}
-              style={{ animationDelay: `${index * 100}ms` }}
+              data-reveal-child
             >
               <span className={styles.icon}>{feature.icon}</span>
               <h3 className={styles.cardTitle}>{feature.title}</h3>

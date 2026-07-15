@@ -1,32 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styles from './Header.module.css';
 import ServerStatus from './ServerStatus';
 
-export default function Header({ brand, serverOnline, health, scrolled }) {
+export default function Header({ brand, serverOnline, health }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   const logo = brand?.logo || 'JS';
   const name = brand?.name || 'JS Compiler';
 
   const navLinks = [
     { label: 'Home', href: '#home' },
-    { label: 'JS Play', href: '/jsplay' },
     { label: 'Download', href: '#download' },
     { label: 'Free vs Pro', href: '#compare' },
-    { label: 'What’s New', href: '/changelog' },
-    { label: 'Docs', href: '/docs' },
     { label: 'Pricing', href: '#pricing' },
     { label: 'Features', href: '#features' },
+    { label: 'What’s New', href: '/changelog' },
+    { label: 'JS Play', href: '/jsplay' },
     { label: 'Contact', href: '#contact' },
   ];
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
       <div className={styles.container}>
         <a href="#home" className={styles.logo} title={name}>
-          {logo}
+          <span className={styles.logoMark}>{logo}</span>
+          <span>{name}</span>
         </a>
 
         <nav className={`${styles.nav} ${menuOpen ? styles.navOpen : ''}`}>
@@ -62,6 +70,7 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
         </div>
 
         <button
+          type="button"
           className={`${styles.hamburger} ${menuOpen ? styles.hamburgerOpen : ''}`}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
@@ -72,9 +81,9 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
         </button>
       </div>
 
-      {menuOpen && (
+      {menuOpen ? (
         <div className={styles.overlay} onClick={() => setMenuOpen(false)} />
-      )}
+      ) : null}
     </header>
   );
 }
