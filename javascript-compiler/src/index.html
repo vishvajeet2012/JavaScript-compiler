@@ -83,6 +83,23 @@
         </div>
       </div>
 
+      <!-- Node packages bar (Pro) — npm install -->
+      <div id="npm-bar" class="npm-bar hidden">
+        <span class="npm-label">npm</span>
+        <input
+          id="npm-package-input"
+          class="npm-input"
+          type="text"
+          placeholder="package name e.g. lodash or axios@1"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="button" id="btn-npm-install" class="btn-secondary">Install</button>
+        <button type="button" id="btn-npm-refresh" class="btn-ghost">Refresh</button>
+        <span id="npm-status" class="npm-status"></span>
+        <div id="npm-packages" class="npm-packages" title="Installed packages"></div>
+      </div>
+
       <div id="editor" class="editor"></div>
 
       <div class="console-panel">

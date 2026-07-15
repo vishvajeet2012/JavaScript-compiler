@@ -9,6 +9,7 @@ const { setupAutoUpdater } = require("./updater");
 const telemetry = require("./telemetry");
 const protection = require("./protection");
 const { startCrashReporter } = require("./crash-reporter");
+const packages = require("./packages");
 
 // Windows toast / jump-list identity
 if (process.platform === "win32") {
@@ -218,6 +219,40 @@ ipcMain.handle("run-code", async (_, payload) => {
     };
   }
 
+  const lang = String(language || "javascript").toLowerCase();
+
+  // Node mode: real process + npm packages (Pro)
+  if (lang === "node" || lang === "nodejs") {
+    const timeoutMs = getExecutionTimeoutMs();
+    telemetry.trackEvent("run_code", {
+      codeLength: String(raw || "").length,
+      language: "node",
+      runtime: "node-packages",
+    });
+    const result = await packages.runNodeCode(raw, { timeoutMs });
+    if (result.success && Array.isArray(result.logs)) {
+      const listed = packages.listPackages();
+      if (listed.packages?.length) {
+        result.logs = [
+          {
+            type: "info",
+            text: `ℹ Node sandbox packages: ${listed.packages.slice(0, 12).join(", ")}${listed.packages.length > 12 ? "…" : ""}`,
+          },
+          ...result.logs,
+        ];
+      } else {
+        result.logs = [
+          {
+            type: "info",
+            text: "ℹ Node mode: use npm install panel for packages (e.g. lodash), then require('lodash')",
+          },
+          ...result.logs,
+        ];
+      }
+    }
+    return result;
+  }
+
   const prepared = runner.prepareCode(raw, language || "javascript");
   telemetry.trackEvent("run_code", {
     codeLength: String(raw || "").length,
@@ -228,6 +263,26 @@ ipcMain.handle("run-code", async (_, payload) => {
     result.logs = [{ type: "warn", text: `ℹ ${prepared.note}` }, ...result.logs];
   }
   return result;
+});
+
+// ── npm packages (Node mode, Pro) ─────────────────────────
+
+ipcMain.handle("npm-list", () => packages.listPackages());
+
+ipcMain.handle("npm-install", async (_, spec) => {
+  const res = await packages.installPackage(spec);
+  if (res.ok) {
+    telemetry.trackEvent("npm_install", { package: String(spec || "").slice(0, 80) });
+  }
+  return res;
+});
+
+ipcMain.handle("npm-remove", async (_, spec) => {
+  const res = await packages.removePackage(spec);
+  if (res.ok) {
+    telemetry.trackEvent("npm_remove", { package: String(spec || "").slice(0, 80) });
+  }
+  return res;
 });
 
 ipcMain.handle("stop-code", () => {

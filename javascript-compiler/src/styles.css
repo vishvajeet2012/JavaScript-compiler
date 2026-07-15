@@ -125,6 +125,70 @@ body {
 .whats-new-content .muted { color: var(--muted); }
 .whats-new-content .hidden { display: none; }
 
+/* npm package bar (Node mode) */
+.npm-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(34, 197, 94, 0.06);
+  font-size: 0.8rem;
+}
+.npm-bar.hidden { display: none; }
+.npm-label {
+  font-weight: 700;
+  color: #86efac;
+  font-family: ui-monospace, monospace;
+}
+.npm-input {
+  flex: 1;
+  min-width: 140px;
+  max-width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.35rem 0.55rem;
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+.npm-status {
+  color: var(--muted);
+  font-size: 0.75rem;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.npm-packages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  width: 100%;
+}
+.npm-chip {
+  font-size: 0.7rem;
+  font-family: ui-monospace, monospace;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.08);
+  cursor: default;
+}
+.npm-chip button {
+  border: 0;
+  background: transparent;
+  color: #fca5a5;
+  cursor: pointer;
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
 /* Titlebar */
 .titlebar {
   height: 48px;

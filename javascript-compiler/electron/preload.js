@@ -45,4 +45,8 @@ contextBridge.exposeInMainWorld("compiler", {
   },
   fetchReleaseNotes: (version) => ipcRenderer.invoke("fetch-release-notes", version),
   fetchAnnouncement: () => ipcRenderer.invoke("fetch-announcement"),
+  // Node packages (Pro)
+  npmList: () => ipcRenderer.invoke("npm-list"),
+  npmInstall: (spec) => ipcRenderer.invoke("npm-install", spec),
+  npmRemove: (spec) => ipcRenderer.invoke("npm-remove", spec),
 });

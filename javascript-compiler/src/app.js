@@ -113,6 +113,12 @@ const TEMPLATES = [
     language: "node",
     code: `function add(a, b) {\n  return a + b;\n}\n\nmodule.exports = { add };\n\nconst lib = module.exports;\nconsole.log('add(3,4) =', lib.add(3, 4));\nconsole.log('exports keys:', Object.keys(exports));`,
   },
+  {
+    name: "npm package (lodash)",
+    desc: "Install lodash via npm bar, then require it",
+    language: "node",
+    code: `// 1) Language: Node (Pro)\n// 2) npm bar: type "lodash" → Install\n// 3) Run\n\nconst _ = require('lodash');\n\nconst nums = [1, 2, 3, 4, 5];\nconsole.log('sum', _.sum(nums));\nconsole.log('chunk', _.chunk(nums, 2));\nconsole.log('uniq', _.uniq([1, 1, 2, 3, 3]));\n`,
+  },
 ];
 
 require.config({
@@ -206,6 +212,87 @@ function updateLanguageSelectProState() {
   sel.title = isPro
     ? "Language mode"
     : "Free: JavaScript only · Pro: TypeScript, HTML+JS, Node";
+  updateNpmBarVisibility();
+}
+
+function updateNpmBarVisibility() {
+  const bar = document.getElementById("npm-bar");
+  if (!bar) return;
+  const show = isPro && currentLanguage() === "node";
+  bar.classList.toggle("hidden", !show);
+  if (show) refreshNpmPackages();
+}
+
+async function refreshNpmPackages() {
+  const listEl = document.getElementById("npm-packages");
+  const status = document.getElementById("npm-status");
+  if (!listEl || !window.compiler?.npmList) return;
+  try {
+    const res = await window.compiler.npmList();
+    listEl.innerHTML = "";
+    (res.packages || []).forEach((name) => {
+      const chip = document.createElement("span");
+      chip.className = "npm-chip";
+      chip.innerHTML = `${esc(name)} <button type="button" title="Uninstall" data-pkg="${esc(name)}">×</button>`;
+      chip.querySelector("button")?.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm(`npm uninstall ${name}?`)) return;
+        if (status) status.textContent = `Removing ${name}…`;
+        const r = await window.compiler.npmRemove(name);
+        if (status) status.textContent = r.ok ? `Removed ${name}` : r.error || "Failed";
+        if (r.ok) showToast(`Removed ${name}`, "success");
+        else showToast(r.error || "Uninstall failed", "error");
+        refreshNpmPackages();
+      });
+      listEl.appendChild(chip);
+    });
+    if (status && !(status.textContent || "").includes("…")) {
+      status.textContent = res.packages?.length
+        ? `${res.packages.length} package(s)`
+        : "No packages — install e.g. lodash";
+    }
+  } catch (e) {
+    if (status) status.textContent = e.message || "npm list failed";
+  }
+}
+
+async function installNpmPackage() {
+  if (!isPro) {
+    showToast("npm install is Pro (Node mode).", "error");
+    openActivateModal();
+    return;
+  }
+  if (currentLanguage() !== "node") {
+    showToast("Switch language to Node to install packages.", "error");
+    return;
+  }
+  const input = document.getElementById("npm-package-input");
+  const status = document.getElementById("npm-status");
+  const btn = document.getElementById("btn-npm-install");
+  const spec = (input?.value || "").trim();
+  if (!spec) {
+    showToast("Enter a package name (e.g. lodash)", "error");
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = `npm install ${spec}…`;
+  try {
+    const res = await window.compiler.npmInstall(spec);
+    if (res.ok) {
+      showToast(res.message || `Installed ${spec}`, "success");
+      if (input) input.value = "";
+      if (status) status.textContent = res.message || "Installed";
+      refreshNpmPackages();
+    } else {
+      showToast(res.error || "npm install failed", "error");
+      if (status) status.textContent = res.error || "Failed";
+    }
+  } catch (e) {
+    showToast(e.message || "npm install failed", "error");
+    if (status) status.textContent = e.message || "Failed";
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function currentLanguage() {
@@ -1271,6 +1358,16 @@ function bindEvents() {
     setLanguageUI(lang);
     isDirty = true;
     setAutoSaveStatus("");
+    updateNpmBarVisibility();
+  });
+
+  document.getElementById("btn-npm-install")?.addEventListener("click", installNpmPackage);
+  document.getElementById("btn-npm-refresh")?.addEventListener("click", refreshNpmPackages);
+  document.getElementById("npm-package-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      installNpmPackage();
+    }
   });
 
   document.getElementById("template-tabs")?.addEventListener("click", (e) => {
