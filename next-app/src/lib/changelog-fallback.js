@@ -5,10 +5,33 @@
 
 export const CHANGELOG_FALLBACK = [
   {
+    version: '1.0.4',
+    title: 'JS Compiler v1.0.4',
+    publishedAt: '2026-07-15',
+    isHome: true,
+    notes: 'Node npm install sandbox, public changelog & Free vs Pro table.',
+    added: [
+      'Node mode npm install bar (Pro) — packages in local sandbox',
+      'Real require() for installed npm modules',
+      'Website What’s New (/changelog) and Docs (/docs)',
+      'Home Free vs Pro comparison table',
+    ],
+    fixed: [],
+    changed: [
+      'Every release must update public changelog (agent rule)',
+    ],
+    removed: [],
+    changelog: [
+      'npm install + require for Node Pro',
+      'Public What’s New page',
+      'Free vs Pro table on homepage',
+    ],
+  },
+  {
     version: '1.0.3',
     title: 'JS Compiler v1.0.3',
     publishedAt: '2026-07-15',
-    isHome: true,
+    isHome: false,
     notes: 'Promo key activation fix, Free vs Pro language lock, trial cleanup.',
     added: [],
     fixed: [

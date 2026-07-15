@@ -1,6 +1,6 @@
 {
   "name": "javascript-compiler",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Desktop JavaScript Compiler with local DB and Pro activation",
   "main": "electron/main.js",
   "author": "Vishvajeet Shukla <hello@vishvajeetshukla.in>",
