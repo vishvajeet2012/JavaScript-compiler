@@ -15,32 +15,16 @@ const PricingPlan = require('../src/models/PricingPlan');
 async function main() {
   await connectDB();
 
-  const updates = [
+  // Single free trial only — TRIAL_7D. Remove ONETIME duplicate if present.
+  const res = await PricingPlan.updateOne(
+    { code: 'TRIAL_7D' },
     {
-      code: 'ONETIME',
       $set: {
         name: '7-Day Free Trial',
         price: 0,
-        originalPrice: null,
-        description: 'Free 7-day single-use trial key · full Pro · 1 device',
-        features: ['Free · 7 days', '1 device', 'One-time use', 'Full Pro features'],
-        planType: 'trial',
-        oneTime: true,
-        durationDays: 7,
-        maxDevices: 1,
-        seats: 1,
-        active: true,
-        sortOrder: 15,
-      },
-    },
-    {
-      code: 'TRIAL_7D',
-      $set: {
-        name: '7-Day Trial',
-        price: 0,
         description: 'Free 7-day trial key — full Pro on 1 device (one-time use)',
         features: [
-          '7 days full Pro',
+          'Free · 7 days full Pro',
           'Unlimited snippets',
           'Export + version history',
           'TS / HTML+JS / Node',
@@ -55,27 +39,21 @@ async function main() {
         sortOrder: 10,
       },
     },
-  ];
+  );
+  console.log(`TRIAL_7D: matched=${res.matchedCount} modified=${res.modifiedCount}`);
 
-  for (const u of updates) {
-    const res = await PricingPlan.updateOne({ code: u.code }, { $set: u.$set }, { upsert: false });
-    if (res.matchedCount === 0) {
-      await PricingPlan.create({ code: u.code, currency: 'INR', ...u.$set });
-      console.log(`Created plan ${u.code} at price 0`);
-    } else {
-      console.log(
-        `Updated ${u.code}: matched=${res.matchedCount} modified=${res.modifiedCount}`,
-      );
-    }
+  const onetime = await PricingPlan.findOne({ code: 'ONETIME' });
+  if (onetime) {
+    console.log('ONETIME still exists — run: node scripts/fix-duplicate-trials.js');
   }
 
   const plans = await PricingPlan.find({
-    code: { $in: ['ONETIME', 'TRIAL_7D'] },
+    $or: [{ planType: 'trial' }, { code: 'TRIAL_7D' }],
   })
     .select('code name price durationDays oneTime active')
     .lean();
 
-  console.log('\nResult:');
+  console.log('\nTrial plans:');
   plans.forEach((p) => {
     console.log(
       `  ${p.code} | ${p.name} | price=${p.price} | days=${p.durationDays} | oneTime=${p.oneTime} | active=${p.active}`,

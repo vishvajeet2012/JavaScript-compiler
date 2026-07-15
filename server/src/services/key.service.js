@@ -457,7 +457,7 @@ async function verifyKey({ key, machineId, token }) {
 
 const DEFAULT_PLANS = [
   {
-    name: '7-Day Trial',
+    name: '7-Day Free Trial',
     code: 'TRIAL_7D',
     price: 0,
     currency: 'INR',
@@ -470,7 +470,7 @@ const DEFAULT_PLANS = [
     sortOrder: 10,
     description: 'Free 7-day trial key — full Pro on 1 device (one-time use)',
     features: [
-      '7 days full Pro',
+      'Free · 7 days full Pro',
       'Unlimited snippets',
       'Export + version history',
       'TS / HTML+JS / Node',
@@ -576,20 +576,7 @@ const DEFAULT_PLANS = [
       'Full Pro for every seat',
     ],
   },
-  {
-    name: '7-Day Free Trial',
-    code: 'ONETIME',
-    price: 0,
-    currency: 'INR',
-    durationDays: 7,
-    maxDevices: 1,
-    oneTime: true,
-    planType: 'trial',
-    seats: 1,
-    sortOrder: 15,
-    description: 'Free 7-day single-use trial key · full Pro · 1 device',
-    features: ['Free · 7 days', '1 device', 'One-time use', 'Full Pro features'],
-  },
+  // ONETIME removed — single free trial is TRIAL_7D only (avoid duplicate 7-day trials)
 ];
 
 /**
