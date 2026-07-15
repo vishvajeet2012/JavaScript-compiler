@@ -9,7 +9,12 @@ Marketing site, multi-platform **downloads**, and free **JS Play** playground fo
 | Home | https://jsplay-kappa.vercel.app |
 | Downloads | https://jsplay-kappa.vercel.app/#download |
 | JS Play | https://jsplay-kappa.vercel.app/jsplay |
+| What’s New / Changelog | https://jsplay-kappa.vercel.app/changelog |
+| Docs | https://jsplay-kappa.vercel.app/docs |
+| Free vs Pro | https://jsplay-kappa.vercel.app/#compare |
 | Download API | `/api/download?platform=windows\|linux\|linux-deb\|mac-arm64\|mac-x64` |
+
+**Release rule:** every desktop version must update `/changelog` content (Admin notes + `src/lib/changelog-fallback.js`). See root `AGENTS.md` Rule V5.
 
 ## About the product (short)
 

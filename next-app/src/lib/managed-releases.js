@@ -58,6 +58,28 @@ export async function getManagedHistoryReleases() {
 }
 
 /**
+ * All published releases for public changelog / What's New page.
+ * Home first, then history; de-dupe by version.
+ */
+export async function getManagedChangelogReleases() {
+  const [home, history] = await Promise.all([
+    getManagedHomeReleases(),
+    getManagedHistoryReleases(),
+  ]);
+  const map = new Map();
+  for (const r of [...home, ...history]) {
+    const v = String(r.version || '').replace(/^v/i, '');
+    if (!v || map.has(v)) continue;
+    map.set(v, r);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const da = new Date(a.publishedAt || 0).getTime();
+    const db = new Date(b.publishedAt || 0).getTime();
+    return db - da;
+  });
+}
+
+/**
  * Convert managed release docs → Download component shape (platforms with /api/download).
  */
 export function homeReleasesToDownloadBlock(releases) {

@@ -11,6 +11,7 @@
 5. **Never commit secrets** (`.env.local`, R2 keys, tokens).
 6. Skip release/push **only** if the user explicitly says not to.
 7. **Docs / rules / README-only edits → do NOT commit or push** unless the user asks.
+8. **Every desktop release → update public What’s New** (`/changelog` + `changelog-fallback.js` + Admin `added/fixed/changed/removed`). See **AGENTS.md Rule V5**.
 
 Full rules, checklist, and version policy: **`AGENTS.md`**.  
 Product overview for humans: **`README.md`**.

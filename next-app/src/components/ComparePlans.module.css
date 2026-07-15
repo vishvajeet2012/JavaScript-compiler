@@ -1,0 +1,137 @@
+.section {
+  padding: 4rem 1.25rem;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  color: #a78bfa;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem;
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0 auto 1.75rem;
+  max-width: 48ch;
+  text-align: center;
+  color: var(--color-text-secondary, #a1a1a1);
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border, #222);
+  border-radius: 16px;
+  background: rgba(12, 12, 16, 0.9);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.table th,
+.table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.9rem;
+}
+
+.table thead th {
+  background: rgba(124, 58, 237, 0.1);
+  color: #e9d5ff;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table tbody th {
+  font-weight: 500;
+  color: var(--color-text-primary, #ededed);
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table td {
+  text-align: center;
+  width: 18%;
+}
+
+.table thead th:first-child,
+.table tbody th {
+  text-align: left;
+  width: auto;
+}
+
+.yes {
+  color: #86efac;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.no {
+  color: #555;
+}
+
+.text {
+  color: #c4b5fd;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.ctaPrimary,
+.ctaSecondary,
+.ctaGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.1rem;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.ctaPrimary {
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+}
+
+.ctaSecondary {
+  color: #e9d5ff;
+  border: 1px solid rgba(124, 58, 237, 0.45);
+  background: rgba(124, 58, 237, 0.12);
+}
+
+.ctaGhost {
+  color: #93c5fd;
+  border: 1px solid #333;
+}

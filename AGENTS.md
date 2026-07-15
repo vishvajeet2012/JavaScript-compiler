@@ -105,6 +105,39 @@ So after a desktop release:
 
 If you only bump package.json without tagging, users still get the **old** installer. That is a **rule violation**.
 
+### Rule V5 — Public What’s New / Changelog (STRICT — every release)
+
+The website has a **public changelog** at:
+
+- `/changelog` — What’s New (Added / Fixed / Changed / Removed)
+- `/docs` — docs hub linking to changelog + Free vs Pro
+
+**On EVERY desktop release `vX.Y.Z` you MUST update the public What’s New surface.** A release is incomplete without this.
+
+Required steps (all of them):
+
+1. **Admin / Mongo managed release** (preferred):
+   - Create or update release `X.Y.Z` with structured fields:
+     - `added[]`, `fixed[]`, `changed[]`, `removed[]` (and optional `changelog[]`, `notes`)
+   - Set **`isHome: true`** for the new version; mark previous home as **`isOutdated: true`**
+   - Platform download URLs for Win / Linux / mac when installers exist
+   - Use seed script pattern: `server/scripts/seed-release-X.Y.Z.js` (run after tag)
+
+2. **Static fallback file** (mandatory backup when API empty):
+   - Update `next-app/src/lib/changelog-fallback.js`
+   - Put the new version **at the top** of `CHANGELOG_FALLBACK` with the same Added/Fixed/Changed/Removed
+   - Keep at least the last 3 versions in the fallback list
+
+3. **Desktop notes file** (preferred):
+   - `javascript-compiler/RELEASE_NOTES_X.Y.Z.md` matching the same bullets
+
+4. **Verify after deploy**:
+   - Open `/changelog` — new version visible with structured sections
+   - Home download / What’s New not stuck on an older version only
+
+**Do not ship a tag without changelog content.**  
+If Admin seed cannot run, still update `changelog-fallback.js` before/with the release commit.
+
 ---
 
 ## 3. RELEASE PROCEDURE (STRICT CHECKLIST)
@@ -122,12 +155,17 @@ Copy this checklist and complete every line that applies.
 
 - [ ] Bump `javascript-compiler/package.json` version (agent decides)
 - [ ] Sync lockfile package version if needed
-- [ ] Add/update short notes in `javascript-compiler/RELEASE_NOTES_X.Y.Z.md` (optional but preferred)
+- [ ] Add/update `javascript-compiler/RELEASE_NOTES_X.Y.Z.md`
+- [ ] **Update public What’s New** (Rule V5):
+  - [ ] `next-app/src/lib/changelog-fallback.js` (new version on top)
+  - [ ] Seed/Admin release with `added` / `fixed` / `changed` / `removed` + `isHome`
+  - [ ] Optional: `server/scripts/seed-release-X.Y.Z.js`
 - [ ] Commit version bump (can be same commit as the feature)
 - [ ] `git push origin main`
 - [ ] `git tag -a vX.Y.Z -m "JS Compiler vX.Y.Z"`
 - [ ] `git push origin vX.Y.Z`
 - [ ] Confirm Actions: `.github/workflows/release.yml` started for that tag
+- [ ] Confirm `/changelog` shows vX.Y.Z after deploy
 
 ### 3.3 Website only (`next-app/**`) and/or API only (`server/**`)
 
