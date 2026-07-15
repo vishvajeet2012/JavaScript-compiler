@@ -89,17 +89,20 @@ export default function PromoPopup() {
     setError('');
     try {
       const visitorId = getVisitorId();
+      // visitorId only in JSON body (avoids CORS preflight header issues)
       const res = await fetch(`${base}/api/v1/promo/claim`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-visitor-id': visitorId,
+          Accept: 'application/json',
         },
         body: JSON.stringify({
           visitorId,
           offerCode: promo?.code || FALLBACK_PROMO.code,
         }),
         cache: 'no-store',
+        mode: 'cors',
+        credentials: 'omit',
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body?.success) {

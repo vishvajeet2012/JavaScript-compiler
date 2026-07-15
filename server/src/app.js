@@ -19,16 +19,31 @@ const app = express();
 app.set('trust proxy', 1);
 
 // --------------- Security Middleware ---------------
-// Helmet: sets various HTTP headers for security
-app.use(helmet());
+// Helmet: API is called cross-origin from Next.js — allow CORP cross-origin
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  }),
+);
 
 // CORS: Next.js (jsplay-kappa) + admin (Vite) + local
+// Must allow custom headers used by website promo claim (x-visitor-id)
 app.use(
   cors({
     origin: config.corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-admin-key',
+      'x-visitor-id',
+      'Accept',
+      'Origin',
+    ],
+    exposedHeaders: ['Content-Type'],
+    optionsSuccessStatus: 204,
   })
 );
 
