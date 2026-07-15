@@ -58,12 +58,18 @@ async function validateOnline(key, machineId) {
   const server = getServerUrl();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
+  // Preserve hyphens; only clean invalid chars (do not regroup into 4-4-4-4)
+  const cleaned = String(key || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .replace(/-+/g, "-");
 
   try {
     const res = await fetch(`${server}/api/activate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: key.trim().toUpperCase(), machineId }),
+      body: JSON.stringify({ key: cleaned, machineId }),
       signal: controller.signal,
     });
 
@@ -78,6 +84,8 @@ async function validateOnline(key, machineId) {
     return {
       success: true,
       token: data.token,
+      // Server returns canonical key when available
+      key: data.key || cleaned,
       message: data.message,
       expiresAt: data.expiresAt || null,
       planName: data.planName || null,
@@ -101,9 +109,10 @@ async function activate(key) {
 
   if (!result.success) return result;
 
+  const storedKey = (result.key || key || "").trim().toUpperCase();
   saveActivation({
     isPro: true,
-    activationKey: key.trim().toUpperCase(),
+    activationKey: storedKey,
     machineId,
     token: result.token,
   });

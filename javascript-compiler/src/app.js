@@ -1198,10 +1198,13 @@ function bindEvents() {
   document.getElementById("file-tree").addEventListener("dragover", (e) => e.preventDefault());
   document.getElementById("file-tree").addEventListener("drop", onDropRoot);
 
+  // Keep hyphens as pasted (PROMO-XXXX-XXXX-XXXX). Only uppercase + trim junk.
+  // Old 4-4-4-4 regrouping broke 5-letter prefixes like PROMO-…
   document.getElementById("activation-key").addEventListener("input", (e) => {
-    let v = e.target.value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-    v = v.match(/.{1,4}/g)?.join("-") || v;
-    e.target.value = v.slice(0, 19);
+    let v = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+    // collapse repeated hyphens
+    v = v.replace(/-+/g, "-").replace(/^-/, "");
+    e.target.value = v.slice(0, 28);
   });
 
   document.addEventListener("keydown", (e) => {

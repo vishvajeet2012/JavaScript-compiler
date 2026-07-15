@@ -290,6 +290,47 @@ async function getStats() {
 
 // ── Activation (Electron app) ────────────────────────────
 
+/** Alphanumeric only — UI may re-insert hyphens in wrong places */
+function compactKey(key) {
+  return String(key || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Find license by exact key or hyphen-insensitive match
+ * (e.g. PROMO-XXXX-… vs PROM-OXXX-… reformatted in UI).
+ */
+async function findLicenseByKey(rawKey) {
+  const normalizedKey = String(rawKey || '')
+    .trim()
+    .toUpperCase();
+  if (!normalizedKey) return null;
+
+  let license = await LicenseKey.findOne({ key: normalizedKey });
+  if (license) return license;
+
+  const compact = compactKey(normalizedKey);
+  if (!compact) return null;
+
+  // Hyphen-insensitive match (Mongo $replaceAll)
+  license = await LicenseKey.findOne({
+    $expr: {
+      $eq: [
+        {
+          $replaceAll: {
+            input: { $toUpper: '$key' },
+            find: '-',
+            replacement: '',
+          },
+        },
+        compact,
+      ],
+    },
+  });
+  return license;
+}
+
 async function activateKey({ key, machineId }) {
   const normalizedKey = String(key || '')
     .trim()
@@ -297,7 +338,7 @@ async function activateKey({ key, machineId }) {
   if (!normalizedKey) throw ApiError.badRequest('Activation key required');
   if (!machineId) throw ApiError.badRequest('Machine ID required');
 
-  const license = await LicenseKey.findOne({ key: normalizedKey });
+  const license = await findLicenseByKey(normalizedKey);
   if (!license) throw ApiError.forbidden('Invalid activation key');
 
   if (license.status === 'revoked') {
@@ -311,14 +352,18 @@ async function activateKey({ key, machineId }) {
   }
 
   const already = license.devices.find((d) => d.machineId === machineId);
+  // Always use canonical DB key for tokens / storage
+  const canonicalKey = license.key;
+
   if (already) {
     already.lastVerifiedAt = new Date();
     await license.save();
-    const token = generateToken(normalizedKey, machineId);
+    const token = generateToken(canonicalKey, machineId);
     return {
       valid: true,
       token,
       message: 'Pro mode activated successfully!',
+      key: canonicalKey,
       expiresAt: license.expiresAt,
       maxDevices: license.maxDevices,
       devicesUsed: license.devices.length,
@@ -348,11 +393,12 @@ async function activateKey({ key, machineId }) {
   license.status = 'active';
   await license.save();
 
-  const token = generateToken(normalizedKey, machineId);
+  const token = generateToken(canonicalKey, machineId);
   return {
     valid: true,
     token,
     message: 'Pro mode activated successfully!',
+    key: canonicalKey,
     expiresAt: license.expiresAt,
     maxDevices: license.maxDevices,
     devicesUsed: license.devices.length,
@@ -370,7 +416,7 @@ async function verifyKey({ key, machineId, token }) {
     throw ApiError.badRequest('key and machineId required');
   }
 
-  const license = await LicenseKey.findOne({ key: normalizedKey });
+  const license = await findLicenseByKey(normalizedKey);
   if (!license) throw ApiError.forbidden('Invalid key');
 
   if (license.status === 'revoked') {
@@ -383,7 +429,8 @@ async function verifyKey({ key, machineId, token }) {
     throw ApiError.forbidden('Key expired');
   }
 
-  const expected = generateToken(normalizedKey, machineId);
+  const canonicalKey = license.key;
+  const expected = generateToken(canonicalKey, machineId);
   if (token !== expected) {
     throw ApiError.forbidden('Invalid token');
   }
