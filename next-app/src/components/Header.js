@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import styles from './Header.module.css';
 import ServerStatus from './ServerStatus';
+import CommandSearch from './CommandSearch';
 
 export default function Header({ brand, serverOnline, health }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -61,6 +62,7 @@ export default function Header({ brand, serverOnline, health }) {
         </nav>
 
         <div className={styles.right}>
+          <CommandSearch />
           <div className={styles.statusDesktop}>
             <ServerStatus online={serverOnline} health={health} />
           </div>

@@ -37,8 +37,9 @@ export default function SmoothScroll({ children }) {
       if (!el) return;
       e.preventDefault();
       lenis.scrollTo(el, { offset: -80, duration: 1.2 });
+      // replaceState (not pushState) — avoids Chrome Back hopping every #section
       if (window.location.hash !== id) {
-        history.pushState(null, '', id);
+        history.replaceState(null, '', id);
       }
     };
     document.addEventListener('click', onClick);
