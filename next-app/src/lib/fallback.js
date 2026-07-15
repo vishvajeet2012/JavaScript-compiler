@@ -6,6 +6,37 @@
 /** Production Express API (Vercel) — used when NEXT_PUBLIC_API_URL is unset */
 export const FALLBACK_API_URL = 'https://java-script-server.vercel.app';
 
+/**
+ * Hardcoded promo fallback if API offline.
+ * Keys must also exist in Mongo (run server/scripts/generate-promo-keys.js).
+ * Popup shows until showUntil (~2 months). License valid until keyExpiresAt.
+ */
+export const FALLBACK_PROMO = {
+  active: true,
+  code: 'WEB_FREE_2M',
+  title: 'Free Pro key — limited launch promo',
+  message:
+    'Activate JS Compiler Pro free until 1 January 2028. Copy the key, open the desktop app → Activate Pro, and paste it. Offer shown here for 2 months.',
+  keyExpiresAt: '2028-01-01T00:00:00.000Z',
+  showUntil: '2026-09-15T00:00:00.000Z',
+  /** Synced with Mongo WEB_FREE_2M promo (generate-promo-keys.js) */
+  sampleKey: 'PROMO-BR6X-W3CH-24MV',
+  keys: [
+    'PROMO-BR6X-W3CH-24MV',
+    'PROMO-YR26-RK5W-UR4X',
+    'PROMO-2QDB-HAXV-DURD',
+    'PROMO-RBZX-23ZH-ULNM',
+    'PROMO-YXBX-RNQ4-ZTTT',
+    'PROMO-6NTH-JBTU-Z552',
+    'PROMO-VCJC-VGW9-HG7A',
+    'PROMO-PPKD-U9YQ-6P4N',
+    'PROMO-KGVP-URU2-NLG5',
+    'PROMO-85TN-7JEG-CANF',
+    'PROMO-947S-B6AG-L3JZ',
+    'PROMO-T4TB-KGP4-KAFN',
+  ],
+};
+
 export const FALLBACK_LANDING = {
   brand: {
     name: 'JS Compiler',

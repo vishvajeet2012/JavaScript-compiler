@@ -41,7 +41,13 @@ const releaseSchema = new mongoose.Schema(
     isPublished: { type: Boolean, default: true, index: true },
     platforms: { type: [platformSchema], default: [] },
     publishedAt: { type: Date, default: Date.now },
+    /** Flat list (legacy) */
     changelog: { type: [String], default: [] },
+    /** Structured notes for in-app “Check for updates” UI */
+    added: { type: [String], default: [] },
+    fixed: { type: [String], default: [] },
+    changed: { type: [String], default: [] },
+    removed: { type: [String], default: [] },
   },
   { timestamps: true },
 );

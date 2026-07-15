@@ -7,6 +7,7 @@ const router = Router();
 router.get('/home', releaseController.listHome);
 router.get('/history', releaseController.listHistory);
 router.get('/download-resolve', releaseController.resolveDownload);
+router.get('/notes/:version', releaseController.getNotes);
 router.get('/version/:version', releaseController.getByVersion);
 
 module.exports = router;

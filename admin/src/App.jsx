@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, hasToken, setToken } from './api';
 import Releases from './Releases';
+import Messages from './Messages';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'releases', label: 'Releases' },
+  { id: 'messages', label: 'Messages & Promo' },
   { id: 'usage', label: 'Usage Analytics' },
   { id: 'crashes', label: 'Crash Reports' },
   { id: 'pricing', label: 'Pricing' },
@@ -200,6 +202,7 @@ export default function App() {
           />
         )}
         {tab === 'releases' && <Releases showToast={showToast} />}
+        {tab === 'messages' && <Messages showToast={showToast} />}
         {tab === 'usage' && (
           <UsageAnalytics
             overview={usageOverview}

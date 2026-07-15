@@ -20,6 +20,18 @@ const getByVersion = asyncHandler(async (req, res) => {
   return ApiResponse.ok(data).send(res);
 });
 
+const getNotes = asyncHandler(async (req, res) => {
+  const data = await releaseService.getNotesForVersion(req.params.version);
+  if (!data) {
+    return res.status(404).json({
+      success: false,
+      message: 'No release notes for this version',
+      data: null,
+    });
+  }
+  return ApiResponse.ok(data).send(res);
+});
+
 const resolveDownload = asyncHandler(async (req, res) => {
   const platform = req.query.platform || 'windows';
   const data = await releaseService.resolvePlatformDownload(platform);
@@ -82,6 +94,7 @@ module.exports = {
   listHome,
   listHistory,
   getByVersion,
+  getNotes,
   resolveDownload,
   adminList,
   adminGet,

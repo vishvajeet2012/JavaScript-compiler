@@ -10,6 +10,16 @@
 </head>
 <body>
 
+  <!-- Admin broadcast message (from server) -->
+  <div id="admin-banner" class="admin-banner hidden" role="status">
+    <div class="admin-banner-inner">
+      <strong id="admin-banner-title"></strong>
+      <span id="admin-banner-body"></span>
+      <a id="admin-banner-cta" class="admin-banner-cta hidden" href="#" target="_blank" rel="noopener"></a>
+    </div>
+    <button type="button" id="admin-banner-close" class="admin-banner-close" aria-label="Dismiss">×</button>
+  </div>
+
   <!-- Titlebar -->
   <header class="titlebar">
     <div class="logo">
@@ -193,6 +203,10 @@
         <div id="update-progress-wrap" class="update-progress-wrap hidden">
           <div class="update-progress-bar"><div id="update-progress-fill" class="update-progress-fill"></div></div>
           <span id="update-progress-label" class="update-progress-label">0%</span>
+        </div>
+        <div id="update-notes-panel" class="update-notes-panel hidden">
+          <h4 id="update-notes-version">What’s new</h4>
+          <pre id="update-notes-body" class="update-notes-body"></pre>
         </div>
       </div>
       <div class="modal-actions">

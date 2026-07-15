@@ -8,6 +8,7 @@ import Stats from '@/components/Stats';
 import About from '@/components/About';
 import Contact from '@/components/Contact';
 import Footer from '@/components/Footer';
+import PromoPopup from '@/components/PromoPopup';
 import { getLanding, getHealth } from '@/lib/api';
 import { FALLBACK_LANDING } from '@/lib/fallback';
 import { getLatestRelease } from '@/lib/releases';
@@ -101,6 +102,7 @@ export default async function Home() {
 
   return (
     <div className={styles.page}>
+      <PromoPopup />
       <Header
         brand={landing.brand}
         serverOnline={serverOnline}

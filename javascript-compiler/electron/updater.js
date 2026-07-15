@@ -1,5 +1,9 @@
 const { app, ipcMain, dialog } = require("electron");
 const { autoUpdater } = require("electron-updater");
+const {
+  fetchReleaseNotes,
+  formatNotesDetail,
+} = require("./announcement");
 
 let mainWindow = null;
 let initialized = false;
@@ -70,10 +74,18 @@ function setupAutoUpdater(win) {
     sendStatus({ status: "checking", error: null });
   });
 
-  autoUpdater.on("update-available", (info) => {
+  autoUpdater.on("update-available", async (info) => {
+    let releaseNotes = null;
+    try {
+      releaseNotes = await fetchReleaseNotes(info.version);
+    } catch {
+      /* ignore */
+    }
     sendStatus({
       status: "available",
       availableVersion: info.version,
+      releaseNotes,
+      notesText: formatNotesDetail(releaseNotes),
       error: null,
     });
   });
@@ -103,32 +115,47 @@ function setupAutoUpdater(win) {
 
   autoUpdater.on("update-downloaded", async (info) => {
     checkInFlight = false;
+
+    let structured = null;
+    try {
+      structured = await fetchReleaseNotes(info.version);
+    } catch {
+      /* ignore */
+    }
+
+    const ghNotes =
+      typeof info.releaseNotes === "string"
+        ? info.releaseNotes.slice(0, 400)
+        : Array.isArray(info.releaseNotes)
+          ? info.releaseNotes
+              .map((n) => n.note || n)
+              .join("\n")
+              .slice(0, 400)
+          : "";
+
+    const notesText =
+      formatNotesDetail(structured) ||
+      ghNotes ||
+      "No detailed changelog from server yet. Admin can add Added/Fixed/Changed/Removed notes on the release.";
+
     sendStatus({
       status: "downloaded",
       availableVersion: info.version,
       progress: { percent: 100 },
+      releaseNotes: structured,
+      notesText,
       error: null,
     });
 
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
-    const notes =
-      typeof info.releaseNotes === "string"
-        ? info.releaseNotes.slice(0, 500)
-        : Array.isArray(info.releaseNotes)
-          ? info.releaseNotes
-              .map((n) => n.note || n)
-              .join("\n")
-              .slice(0, 500)
-          : "";
-
     const result = await dialog.showMessageBox(mainWindow, {
       type: "info",
-      title: "Update ready",
+      title: `Update ready — v${info.version}`,
       message: `Version ${info.version} is ready to install.`,
       detail:
-        (notes ? `${notes}\n\n` : "") +
-        "Restart now to install, or later when you quit the app. You do not need to download again from the website.",
+        `${notesText}\n\n` +
+        "Restart now to install, or later when you quit. No need to re-download from the website.",
       buttons: ["Restart now", "Later"],
       defaultId: 0,
       cancelId: 1,
@@ -163,6 +190,22 @@ function setupAutoUpdater(win) {
     currentVersion: app.getVersion(),
     isDev: !app.isPackaged,
   }));
+
+  ipcMain.handle("fetch-release-notes", async (_e, version) => {
+    const notes = await fetchReleaseNotes(version || updateStatus.availableVersion);
+    return {
+      ok: Boolean(notes),
+      notes,
+      text: formatNotesDetail(notes),
+      currentVersion: app.getVersion(),
+    };
+  });
+
+  const { fetchActiveAnnouncement } = require("./announcement");
+  ipcMain.handle("fetch-announcement", async () => {
+    const msg = await fetchActiveAnnouncement();
+    return { ok: Boolean(msg), message: msg };
+  });
 
   ipcMain.handle("check-for-updates", async () => {
     if (!app.isPackaged) {

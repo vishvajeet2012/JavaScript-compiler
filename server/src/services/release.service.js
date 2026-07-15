@@ -121,6 +121,10 @@ async function create(body = {}) {
     platforms: (body.platforms || []).map(mapPlatform),
     publishedAt: body.publishedAt ? new Date(body.publishedAt) : new Date(),
     changelog: Array.isArray(body.changelog) ? body.changelog : [],
+    added: Array.isArray(body.added) ? body.added : [],
+    fixed: Array.isArray(body.fixed) ? body.fixed : [],
+    changed: Array.isArray(body.changed) ? body.changed : [],
+    removed: Array.isArray(body.removed) ? body.removed : [],
   });
 
   return hydrateRelease(doc.toObject());
@@ -136,6 +140,10 @@ async function update(id, body = {}) {
   if (body.title != null) rel.title = body.title;
   if (body.notes != null) rel.notes = body.notes;
   if (body.changelog != null) rel.changelog = body.changelog;
+  if (body.added != null) rel.added = Array.isArray(body.added) ? body.added : [];
+  if (body.fixed != null) rel.fixed = Array.isArray(body.fixed) ? body.fixed : [];
+  if (body.changed != null) rel.changed = Array.isArray(body.changed) ? body.changed : [];
+  if (body.removed != null) rel.removed = Array.isArray(body.removed) ? body.removed : [];
   if (body.publishedAt != null) rel.publishedAt = new Date(body.publishedAt);
   if (body.isPublished != null) rel.isPublished = Boolean(body.isPublished);
   if (body.isOutdated != null) rel.isOutdated = Boolean(body.isOutdated);
@@ -269,6 +277,27 @@ async function confirmR2Upload(id, body = {}) {
 /**
  * Resolve download URL for platform from home release, else any published.
  */
+/** Structured notes for a version (in-app update UI) */
+async function getNotesForVersion(version) {
+  const v = normalizeVersion(version);
+  const rel = await Release.findOne({
+    version: { $in: [v, `v${v}`] },
+    isPublished: true,
+  }).lean();
+  if (!rel) return null;
+  return {
+    version: normalizeVersion(rel.version),
+    title: rel.title,
+    notes: rel.notes,
+    changelog: rel.changelog || [],
+    added: rel.added || [],
+    fixed: rel.fixed || [],
+    changed: rel.changed || [],
+    removed: rel.removed || [],
+    publishedAt: rel.publishedAt,
+  };
+}
+
 async function resolvePlatformDownload(platformId = 'windows') {
   const pid = String(platformId || 'windows').toLowerCase();
 
@@ -327,4 +356,5 @@ module.exports = {
   presignUpload,
   confirmR2Upload,
   resolvePlatformDownload,
+  getNotesForVersion,
 };

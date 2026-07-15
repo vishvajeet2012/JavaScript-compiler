@@ -6,6 +6,7 @@ const activationRoutes = require('./activation.routes');
 const telemetryRoutes = require('./telemetry.routes');
 const crashRoutes = require('./crash.routes');
 const releaseRoutes = require('./release.routes');
+const promoController = require('../controllers/promo.controller');
 const config = require('../config');
 
 const router = Router();
@@ -42,6 +43,11 @@ router.get('/', (req, res) => {
 router.use(`${config.apiPrefix}/health`, healthRoutes);
 router.use(`${config.apiPrefix}/admin`, adminRoutes);
 router.use(`${config.apiPrefix}/releases`, releaseRoutes);
+
+// Public promo (Next.js popup) + desktop announcement
+router.get(`${config.apiPrefix}/promo`, promoController.publicPromo);
+router.get(`${config.apiPrefix}/announcement`, promoController.publicAnnouncement);
+
 router.use(`${config.apiPrefix}`, apiRoutes);
 
 // Electron app activation + silent usage telemetry + crashes

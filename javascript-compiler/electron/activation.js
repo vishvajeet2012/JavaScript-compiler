@@ -2,7 +2,8 @@ const { machineIdSync } = require("node-machine-id");
 const crypto = require("crypto");
 const { getActivation, saveActivation, clearActivation } = require("./db");
 
-// Production activation API only — never shown in Settings UI
+// Production activation API — hardcoded fallback (never localhost in UI)
+// Keep in sync with next-app FALLBACK_API_URL
 const DEFAULT_SERVER = "https://java-script-server.vercel.app";
 const FREE_SNIPPET_LIMIT = 5;
 

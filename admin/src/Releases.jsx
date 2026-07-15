@@ -18,6 +18,10 @@ function emptyForm() {
     isOutdated: false,
     isPublished: true,
     changelogText: '',
+    addedText: '',
+    fixedText: '',
+    changedText: '',
+    removedText: '',
   };
 }
 
@@ -51,13 +55,16 @@ export default function Releases({ showToast }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const parseLines = (text) =>
+    String(text || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
   const createRelease = async (e) => {
     e.preventDefault();
     try {
-      const changelog = form.changelogText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const changelog = parseLines(form.changelogText);
       await api.createRelease({
         version: form.version,
         title: form.title || `JS Compiler v${form.version}`,
@@ -66,6 +73,10 @@ export default function Releases({ showToast }) {
         isOutdated: form.isOutdated,
         isPublished: form.isPublished,
         changelog,
+        added: parseLines(form.addedText),
+        fixed: parseLines(form.fixedText),
+        changed: parseLines(form.changedText),
+        removed: parseLines(form.removedText),
         platforms: [],
       });
       showToast?.('Release created');
@@ -216,9 +227,42 @@ export default function Releases({ showToast }) {
           <label className="full">
             Changelog (one line per item)
             <textarea
-              rows={3}
+              rows={2}
               value={form.changelogText}
               onChange={(e) => setForm({ ...form, changelogText: e.target.value })}
+            />
+          </label>
+          <label>
+            Added (in-app update UI)
+            <textarea
+              rows={2}
+              placeholder="New feature…"
+              value={form.addedText}
+              onChange={(e) => setForm({ ...form, addedText: e.target.value })}
+            />
+          </label>
+          <label>
+            Fixed
+            <textarea
+              rows={2}
+              value={form.fixedText}
+              onChange={(e) => setForm({ ...form, fixedText: e.target.value })}
+            />
+          </label>
+          <label>
+            Changed
+            <textarea
+              rows={2}
+              value={form.changedText}
+              onChange={(e) => setForm({ ...form, changedText: e.target.value })}
+            />
+          </label>
+          <label>
+            Removed
+            <textarea
+              rows={2}
+              value={form.removedText}
+              onChange={(e) => setForm({ ...form, removedText: e.target.value })}
             />
           </label>
           <label className="check">

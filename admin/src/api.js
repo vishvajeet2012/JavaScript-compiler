@@ -112,6 +112,28 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // Promo + announcements
+  listPromos: () => request('/api/v1/admin/promos'),
+  createPromo: (body) =>
+    request('/api/v1/admin/promos', { method: 'POST', body: JSON.stringify(body) }),
+  updatePromo: (id, body) =>
+    request(`/api/v1/admin/promos/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deletePromo: (id) =>
+    request(`/api/v1/admin/promos/${id}`, { method: 'DELETE' }),
+  listAnnouncements: () => request('/api/v1/admin/announcements'),
+  createAnnouncement: (body) =>
+    request('/api/v1/admin/announcements', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateAnnouncement: (id, body) =>
+    request(`/api/v1/admin/announcements/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteAnnouncement: (id) =>
+    request(`/api/v1/admin/announcements/${id}`, { method: 'DELETE' }),
+
   // ── Releases (home line + history + R2) ─────────────────
   listReleases: () => request('/api/v1/admin/releases'),
   createRelease: (body) =>

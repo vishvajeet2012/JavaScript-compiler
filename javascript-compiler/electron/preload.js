@@ -43,4 +43,6 @@ contextBridge.exposeInMainWorld("compiler", {
     ipcRenderer.on("update-status", handler);
     return () => ipcRenderer.removeListener("update-status", handler);
   },
+  fetchReleaseNotes: (version) => ipcRenderer.invoke("fetch-release-notes", version),
+  fetchAnnouncement: () => ipcRenderer.invoke("fetch-announcement"),
 });

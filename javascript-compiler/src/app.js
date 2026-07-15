@@ -150,6 +150,7 @@ async function init() {
   startAutoSave();
   bindEvents();
   await initVersionAndUpdates();
+  loadAdminAnnouncement();
   document.getElementById("machine-id").textContent =
     (await window.compiler.getMachineId()).slice(0, 16) + "...";
   setLanguageUI(activeLanguage);
@@ -297,6 +298,72 @@ function applyUpdateStatus(data) {
   }
 
   if (settingsText) settingsText.textContent = settingsMsg;
+
+  const notesPanel = document.getElementById("update-notes-panel");
+  const notesBody = document.getElementById("update-notes-body");
+  const notesVer = document.getElementById("update-notes-version");
+  if (notesPanel && notesBody) {
+    if (data.notesText || data.releaseNotes) {
+      notesPanel.classList.remove("hidden");
+      if (notesVer) {
+        notesVer.textContent = data.availableVersion
+          ? `What’s new in v${data.availableVersion}`
+          : "What’s new";
+      }
+      notesBody.textContent = data.notesText || "";
+    } else if (data.status === "not-available" || data.status === "error") {
+      notesPanel.classList.add("hidden");
+    }
+  }
+}
+
+async function loadAdminAnnouncement() {
+  if (!window.compiler?.fetchAnnouncement) return;
+  try {
+    const res = await window.compiler.fetchAnnouncement();
+    const msg = res?.message;
+    if (!msg) return;
+    const banner = document.getElementById("admin-banner");
+    const title = document.getElementById("admin-banner-title");
+    const body = document.getElementById("admin-banner-body");
+    const cta = document.getElementById("admin-banner-cta");
+    const close = document.getElementById("admin-banner-close");
+    if (!banner || !title || !body) return;
+
+    const dismissKey = `admin-banner-dismiss-${msg._id || msg.title}`;
+    try {
+      if (localStorage.getItem(dismissKey) === "1") return;
+    } catch {
+      /* ignore */
+    }
+
+    title.textContent = msg.title || "Message";
+    body.textContent = msg.body || "";
+    banner.classList.remove("hidden");
+    banner.dataset.type = msg.type || "info";
+
+    if (cta) {
+      if (msg.ctaUrl && msg.ctaLabel) {
+        cta.href = msg.ctaUrl;
+        cta.textContent = msg.ctaLabel;
+        cta.classList.remove("hidden");
+      } else {
+        cta.classList.add("hidden");
+      }
+    }
+    if (close) {
+      close.onclick = () => {
+        banner.classList.add("hidden");
+        try {
+          localStorage.setItem(dismissKey, "1");
+        } catch {
+          /* ignore */
+        }
+      };
+    }
+  } catch {
+    /* offline */
+  }
 }
 
 async function checkForUpdatesManual() {
@@ -326,6 +393,22 @@ async function checkForUpdatesManual() {
         result.updateInfo?.version ||
         "new version";
       showToast(`Update found: v${ver}. Downloading…`, "success");
+      // Load admin-structured notes (Added / Fixed / Changed / Removed)
+      if (window.compiler.fetchReleaseNotes && ver !== "new version") {
+        try {
+          const notesRes = await window.compiler.fetchReleaseNotes(ver);
+          if (notesRes?.text) {
+            applyUpdateStatus({
+              ...result,
+              availableVersion: ver,
+              notesText: notesRes.text,
+              releaseNotes: notesRes.notes,
+            });
+          }
+        } catch {
+          /* ignore */
+        }
+      }
     } else if (result.ok) {
       showToast("Update check complete.", "success");
     }
