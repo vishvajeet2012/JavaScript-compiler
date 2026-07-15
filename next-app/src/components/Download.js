@@ -5,12 +5,26 @@ import styles from './Download.module.css';
 
 const defaults = {
   title: 'Download JS Compiler',
-  subtitle: 'Free desktop app with auto-updates.',
-  version: '1.0.0',
+  subtitle: 'Free desktop app for Windows, Linux, and macOS.',
+  version: 'latest',
   platforms: [],
   changelog: [],
   requirements: [],
 };
+
+function platformIcon(id) {
+  if (id === 'windows') return '🪟';
+  if (id === 'linux' || id === 'linux-deb') return '🐧';
+  if (id === 'mac' || id === 'mac-arm64' || id === 'mac-x64') return '🍎';
+  return '📦';
+}
+
+function formatBytes(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num <= 0) return '';
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(0)} KB`;
+  return `${(num / 1024 / 1024).toFixed(1)} MB`;
+}
 
 function formatRetry(sec) {
   if (!sec || sec < 60) return `${sec || 0}s`;
@@ -122,8 +136,11 @@ export default function Download({ data }) {
           <div className={styles.cards}>
             {platforms.map((p) => {
               const isAppDownload =
-                typeof p.href === 'string' && p.href.startsWith('/api/download');
+                typeof p.href === 'string' &&
+                p.href.startsWith('/api/download');
               const busy = busyId === (p.id || p.label);
+              const sizeLabel = formatBytes(p.size);
+              const meta = [p.arch, sizeLabel].filter(Boolean).join(' · ');
 
               if (isAppDownload) {
                 return (
@@ -136,17 +153,20 @@ export default function Download({ data }) {
                   >
                     <div className={styles.cardTop}>
                       <span className={styles.osIcon}>
-                        {p.id === 'windows' ? '🪟' : '📦'}
+                        {platformIcon(p.id)}
                       </span>
                       <div>
                         <h3>{p.name}</h3>
-                        {p.arch ? <p className={styles.meta}>{p.arch}</p> : null}
+                        {meta ? <p className={styles.meta}>{meta}</p> : null}
                       </div>
                     </div>
                     <span className={styles.downloadBtn}>
                       {busy ? 'Preparing download…' : p.label}
                     </span>
                     {p.note ? <p className={styles.note}>{p.note}</p> : null}
+                    {p.file ? (
+                      <p className={styles.note}>{p.file}</p>
+                    ) : null}
                   </button>
                 );
               }
@@ -160,12 +180,10 @@ export default function Download({ data }) {
                   rel="noopener noreferrer"
                 >
                   <div className={styles.cardTop}>
-                    <span className={styles.osIcon}>
-                      {p.id === 'windows' ? '🪟' : '📦'}
-                    </span>
+                    <span className={styles.osIcon}>{platformIcon(p.id)}</span>
                     <div>
                       <h3>{p.name}</h3>
-                      {p.arch ? <p className={styles.meta}>{p.arch}</p> : null}
+                      {meta ? <p className={styles.meta}>{meta}</p> : null}
                     </div>
                   </div>
                   <span className={styles.downloadBtn}>{p.label}</span>

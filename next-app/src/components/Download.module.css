@@ -56,7 +56,14 @@
 
 .cards {
   display: grid;
+  grid-template-columns: 1fr;
   gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .card {

@@ -28,9 +28,8 @@ export function getR2Config() {
      * Public fallback if R2 is not configured on the host (e.g. Vercel missing env).
      * Prefer R2 when credentials work.
      */
-    githubFallbackUrl:
-      process.env.DOWNLOAD_GITHUB_FALLBACK_URL ||
-      'https://github.com/vishvajeet2012/JavaScript-compiler/releases/latest/download/JS-Compiler-Setup-1.0.0.exe',
+    // Prefer dynamic GitHub latest via lib/releases.js; this is only a last-resort URL.
+    githubFallbackUrl: process.env.DOWNLOAD_GITHUB_FALLBACK_URL || '',
   };
 }
 
