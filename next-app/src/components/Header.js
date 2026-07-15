@@ -12,6 +12,7 @@ export default function Header({ brand, serverOnline, health, scrolled }) {
 
   const navLinks = [
     { label: 'Home', href: '#home' },
+    { label: 'JS Play', href: '/jsplay' },
     { label: 'Download', href: '#download' },
     { label: 'Pricing', href: '#pricing' },
     { label: 'Features', href: '#features' },
