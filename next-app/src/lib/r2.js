@@ -24,7 +24,26 @@ export function getR2Config() {
       process.env.R2_DOWNLOAD_FILENAME || 'JS Compiler-Setup-1.0.0.exe',
     /** Signed URL lifetime (seconds) — short, Toolflow-style */
     signedUrlTtl: Number(process.env.R2_SIGNED_URL_TTL || 300),
+    /**
+     * Public fallback if R2 is not configured on the host (e.g. Vercel missing env).
+     * Prefer R2 when credentials work.
+     */
+    githubFallbackUrl:
+      process.env.DOWNLOAD_GITHUB_FALLBACK_URL ||
+      'https://github.com/vishvajeet2012/JavaScript-compiler/releases/latest/download/JS-Compiler-Setup-1.0.0.exe',
   };
+}
+
+/** True when Access Key + Secret are present (required for private R2). */
+export function isR2Configured() {
+  const cfg = getR2Config();
+  return Boolean(
+    (cfg.endpoint || cfg.accountId) &&
+      cfg.accessKeyId &&
+      cfg.secretAccessKey &&
+      cfg.bucket &&
+      cfg.objectKey,
+  );
 }
 
 let client;

@@ -36,35 +36,39 @@ export default function Download({ data }) {
     setInfo('');
 
     try {
-      // Toolflow-style: hit API, follow to signed R2 URL, trigger browser save
-      const res = await fetch(href, {
+      // Preflight: catch JSON errors (missing R2 env / rate limit) before redirect
+      const pre = await fetch(href, {
         method: 'GET',
         redirect: 'manual',
         cache: 'no-store',
       });
 
-      // Opaque redirect (manual) — Location holds signed URL
-      if (res.status >= 300 && res.status < 400) {
-        const location = res.headers.get('Location');
+      // 302 → signed R2 URL (same-origin response, Location readable)
+      if (pre.status >= 300 && pre.status < 400) {
+        const location = pre.headers.get('Location');
+        const remaining = pre.headers.get('X-Download-Remaining');
+        if (remaining != null) {
+          setInfo(
+            `Download started. Remaining today for this network: ${remaining}`,
+          );
+        }
         if (location) {
-          const remaining = res.headers.get('X-Download-Remaining');
-          if (remaining != null) {
-            setInfo(`Download started. Remaining today for this network: ${remaining}`);
-          }
-          // Navigate so browser gets Content-Disposition + real .exe name
           window.location.assign(location);
           return;
         }
-      }
-
-      // Some browsers treat 302 as opaqueredirect
-      if (res.type === 'opaqueredirect' || res.status === 0) {
+        // Location hidden — still navigate; browser will follow 302
         window.location.assign(href);
         return;
       }
 
-      if (res.status === 429) {
-        const body = await res.json().catch(() => ({}));
+      // Opaque redirect (some browsers)
+      if (pre.type === 'opaqueredirect' || pre.status === 0) {
+        window.location.assign(href);
+        return;
+      }
+
+      if (pre.status === 429) {
+        const body = await pre.json().catch(() => ({}));
         const retry = body?.data?.retryAfterSec || body?.retryAfterSec;
         setError(
           body?.message ||
@@ -73,14 +77,16 @@ export default function Download({ data }) {
         return;
       }
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body?.message || `Download failed (${res.status})`);
+      if (!pre.ok) {
+        const body = await pre.json().catch(() => ({}));
+        setError(
+          body?.message ||
+            `Download failed (${pre.status}). If this is production, set R2 env vars on Vercel.`,
+        );
         return;
       }
 
-      // Fallback: if API returned a body with url
-      const body = await res.json().catch(() => null);
+      const body = await pre.json().catch(() => null);
       if (body?.url) {
         window.location.assign(body.url);
         return;
@@ -88,7 +94,7 @@ export default function Download({ data }) {
 
       window.location.assign(href);
     } catch {
-      // Network / CORS edge cases — direct navigation still works
+      // Last resort: full navigation (works when fetch is blocked)
       window.location.assign(href);
     } finally {
       setBusyId(null);
