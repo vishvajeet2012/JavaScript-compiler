@@ -78,7 +78,15 @@ async function hydrateRelease(rel) {
       };
     }),
   );
-  return { ...rel, platforms, version: normalizeVersion(rel.version) };
+  return {
+    ...rel,
+    platforms,
+    version: normalizeVersion(rel.version),
+    added: rel.added || [],
+    fixed: rel.fixed || [],
+    changed: rel.changed || [],
+    removed: rel.removed || [],
+  };
 }
 
 async function getByVersion(version) {

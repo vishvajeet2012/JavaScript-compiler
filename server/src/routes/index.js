@@ -46,6 +46,7 @@ router.use(`${config.apiPrefix}/releases`, releaseRoutes);
 
 // Public promo (Next.js popup) + desktop announcement
 router.get(`${config.apiPrefix}/promo`, promoController.publicPromo);
+router.post(`${config.apiPrefix}/promo/claim`, promoController.claimPromo);
 router.get(`${config.apiPrefix}/announcement`, promoController.publicAnnouncement);
 
 router.use(`${config.apiPrefix}`, apiRoutes);

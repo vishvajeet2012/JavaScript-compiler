@@ -11,6 +11,23 @@ const publicPromo = asyncHandler(async (req, res) => {
   return ApiResponse.ok(data).send(res);
 });
 
+const claimPromo = asyncHandler(async (req, res) => {
+  const ip =
+    req.headers['cf-connecting-ip'] ||
+    req.headers['x-real-ip'] ||
+    (req.headers['x-forwarded-for'] || '').split(',')[0] ||
+    req.ip;
+  const data = await promoService.claimKey({
+    offerCode: req.body?.offerCode || req.query?.offerCode,
+    visitorId: req.body?.visitorId || req.headers['x-visitor-id'],
+    ip,
+    userAgent: req.headers['user-agent'],
+  });
+  return ApiResponse.ok(data, data.alreadyClaimed ? 'Already claimed' : 'Key claimed').send(
+    res,
+  );
+});
+
 const publicAnnouncement = asyncHandler(async (req, res) => {
   const data = await announcementService.getActive();
   return ApiResponse.ok(data).send(res);
@@ -74,6 +91,7 @@ const adminDeleteAnnouncement = asyncHandler(async (req, res) => {
 
 module.exports = {
   publicPromo,
+  claimPromo,
   publicAnnouncement,
   publicReleaseNotes,
   adminListPromo,

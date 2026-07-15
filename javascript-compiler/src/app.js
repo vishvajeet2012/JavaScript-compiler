@@ -317,6 +317,84 @@ function applyUpdateStatus(data) {
   }
 }
 
+function renderWhatsNewHtml(notes) {
+  if (!notes) return `<p class="muted">No notes found for this version.</p>`;
+  const section = (title, items) => {
+    if (!Array.isArray(items) || !items.length) return "";
+    return `<h4>${title}</h4><ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join("")}</ul>`;
+  };
+  const parts = [
+    notes.title ? `<p><strong>${escapeHtml(notes.title)}</strong></p>` : "",
+    notes.notes ? `<p>${escapeHtml(notes.notes)}</p>` : "",
+    section("Added", notes.added),
+    section("Fixed", notes.fixed),
+    section("Changed", notes.changed),
+    section("Removed", notes.removed),
+    section("Changelog", notes.changelog),
+  ].filter(Boolean);
+  return parts.join("") || `<p class="muted">No structured notes yet. Admin can add them on the release.</p>`;
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function openWhatsNew() {
+  openModal("modal-whats-new");
+  try {
+    const v = await window.compiler.getAppVersion();
+    const cur = document.getElementById("whats-new-current");
+    if (cur) cur.textContent = `v${v}`;
+    const input = document.getElementById("whats-new-version-input");
+    if (input && !input.value) input.value = v;
+  } catch {
+    /* ignore */
+  }
+  await loadWhatsNewNotes();
+}
+
+async function loadWhatsNewNotes(mode) {
+  const content = document.getElementById("whats-new-content");
+  const input = document.getElementById("whats-new-version-input");
+  const targetWrap = document.getElementById("whats-new-target-wrap");
+  const targetEl = document.getElementById("whats-new-target");
+  if (!content) return;
+  content.innerHTML = `<p class="muted">Loading…</p>`;
+
+  let version = (input?.value || "").trim().replace(/^v/i, "");
+  if (mode === "home") {
+    // special: server home release notes
+    version = "home";
+  }
+
+  try {
+    let notes = null;
+    if (version === "home" && window.compiler.fetchReleaseNotes) {
+      const res = await window.compiler.fetchReleaseNotes("home");
+      notes = res?.notes || null;
+      if (notes?.version && input) input.value = notes.version;
+    } else if (window.compiler.fetchReleaseNotes) {
+      const res = await window.compiler.fetchReleaseNotes(version);
+      notes = res?.notes || null;
+    }
+    if (targetWrap && targetEl) {
+      if (notes?.version) {
+        targetWrap.classList.remove("hidden");
+        targetEl.textContent = `v${notes.version}`;
+      } else {
+        targetWrap.classList.add("hidden");
+      }
+    }
+    content.innerHTML = renderWhatsNewHtml(notes);
+  } catch (e) {
+    content.innerHTML = `<p class="muted">Could not load notes. ${escapeHtml(e.message || "")}</p>`;
+  }
+}
+
 async function loadAdminAnnouncement() {
   if (!window.compiler?.fetchAnnouncement) return;
   try {
@@ -1089,6 +1167,10 @@ function bindEvents() {
   document.getElementById("btn-install-update").addEventListener("click", installUpdateNow);
   document.getElementById("btn-shortcuts").addEventListener("click", () => openModal("modal-shortcuts"));
   document.getElementById("btn-close-shortcuts").addEventListener("click", () => closeModal("modal-shortcuts"));
+  document.getElementById("btn-whats-new")?.addEventListener("click", openWhatsNew);
+  document.getElementById("btn-whats-new-close")?.addEventListener("click", () => closeModal("modal-whats-new"));
+  document.getElementById("btn-whats-new-load")?.addEventListener("click", () => loadWhatsNewNotes());
+  document.getElementById("btn-whats-new-latest")?.addEventListener("click", () => loadWhatsNewNotes("home"));
   document.getElementById("btn-clear").addEventListener("click", resetEditor);
   document.getElementById("btn-clear-console").addEventListener("click", () => { document.getElementById("console").innerHTML = ""; });
   document.getElementById("btn-new").addEventListener("click", () => { resetEditor(); renderFileTree(); });

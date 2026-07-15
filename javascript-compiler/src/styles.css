@@ -92,6 +92,39 @@ body {
   line-height: 1.45;
 }
 
+.modal-whats-new { max-width: 520px; }
+.whats-new-sub {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.whats-new-content {
+  margin-top: 0.85rem;
+  max-height: 280px;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0d0d14;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #c4c4d0;
+}
+.whats-new-content h4 {
+  margin: 0.65rem 0 0.3rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a78bfa;
+}
+.whats-new-content h4:first-child { margin-top: 0; }
+.whats-new-content ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.whats-new-content .muted { color: var(--muted); }
+.whats-new-content .hidden { display: none; }
+
 /* Titlebar */
 .titlebar {
   height: 48px;

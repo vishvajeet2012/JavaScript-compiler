@@ -53,11 +53,16 @@ jobs:
       - name: Rebuild native modules
         run: npx electron-builder install-app-deps
 
+      # Signing: set CSC_LINK + CSC_KEY_PASSWORD repo secrets for SmartScreen-friendly builds.
+      # If secrets are empty, builds stay unsigned (still publish + auto-update).
       - name: Build & publish (Windows)
         if: matrix.platform == 'win'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Only force-disable discovery when no cert secret is configured
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK == '' && 'false' || 'true' }}
         run: npx electron-builder --win --x64 --publish always
 
       - name: Build & publish (Linux)
@@ -70,5 +75,7 @@ jobs:
         if: matrix.platform == 'mac'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK == '' && 'false' || 'true' }}
         run: npx electron-builder --mac --publish always

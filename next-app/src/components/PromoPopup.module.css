@@ -142,3 +142,9 @@
   color: #fff;
   border-color: #555;
 }
+
+.error {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: #fca5a5;
+}

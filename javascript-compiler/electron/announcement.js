@@ -40,11 +40,39 @@ async function fetchActiveAnnouncement() {
  */
 async function fetchReleaseNotes(version) {
   if (!version) return null;
-  const v = String(version).replace(/^v/i, "");
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(`${serverBase()}/api/v1/releases/notes/${encodeURIComponent(v)}`, {
+    let url;
+    if (String(version).toLowerCase() === "home") {
+      // Home managed release (isHome)
+      const homeRes = await fetch(`${serverBase()}/api/v1/releases/home`, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      if (!homeRes.ok) {
+        clearTimeout(t);
+        return null;
+      }
+      const homeBody = await homeRes.json();
+      const first = Array.isArray(homeBody?.data) ? homeBody.data[0] : null;
+      clearTimeout(t);
+      if (!first) return null;
+      return {
+        version: String(first.version || "").replace(/^v/i, ""),
+        title: first.title,
+        notes: first.notes,
+        changelog: first.changelog || [],
+        added: first.added || [],
+        fixed: first.fixed || [],
+        changed: first.changed || [],
+        removed: first.removed || [],
+        publishedAt: first.publishedAt,
+      };
+    }
+    const v = String(version).replace(/^v/i, "");
+    url = `${serverBase()}/api/v1/releases/notes/${encodeURIComponent(v)}`;
+    const res = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: "application/json" },
     });

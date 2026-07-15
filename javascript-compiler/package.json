@@ -1,6 +1,6 @@
 {
   "name": "javascript-compiler",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Desktop JavaScript Compiler with local DB and Pro activation",
   "main": "electron/main.js",
   "author": "Vishvajeet Shukla <hello@vishvajeetshukla.in>",
@@ -69,7 +69,7 @@
       "signingHashAlgorithms": ["sha256"],
       "rfc3161TimeStampServer": "http://timestamp.digicert.com",
       "timeStampServer": "http://timestamp.digicert.com",
-      "signAndEditExecutable": false,
+      "signAndEditExecutable": true,
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
