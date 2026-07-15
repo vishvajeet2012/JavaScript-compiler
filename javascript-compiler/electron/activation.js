@@ -7,6 +7,10 @@ const { getActivation, saveActivation, clearActivation } = require("./db");
 const DEFAULT_SERVER = "https://java-script-server.vercel.app";
 const FREE_SNIPPET_LIMIT = 5;
 
+/** Free plan: JavaScript only. Everything else is Pro. */
+const FREE_LANGUAGES = new Set(["javascript", "js"]);
+const PRO_LANGUAGES = new Set(["typescript", "html", "node"]);
+
 function getMachineId() {
   return crypto.createHash("sha256").update(machineIdSync(true)).digest("hex").slice(0, 32);
 }
@@ -261,6 +265,35 @@ function canUseVersionHistory() {
   };
 }
 
+function normalizeLanguage(lang) {
+  const l = String(lang || "javascript").toLowerCase().trim();
+  if (l === "js" || l === "javascript") return "javascript";
+  if (l === "ts" || l === "typescript") return "typescript";
+  if (l === "html" || l === "html+js" || l === "htm") return "html";
+  if (l === "node" || l === "nodejs") return "node";
+  return l;
+}
+
+/**
+ * Free = JavaScript only.
+ * Pro = TypeScript, HTML+JS, Node, etc.
+ */
+function canUseLanguage(lang) {
+  const l = normalizeLanguage(lang);
+  if (isProActive()) return { allowed: true, language: l };
+  if (FREE_LANGUAGES.has(l)) return { allowed: true, language: l };
+  return {
+    allowed: false,
+    language: l,
+    message:
+      "TypeScript, HTML+JS, and Node are Pro features. Activate Pro to unlock multi-language mode.",
+  };
+}
+
+function canUseTemplates(lang) {
+  return canUseLanguage(lang || "javascript");
+}
+
 module.exports = {
   activate,
   verifyActivation,
@@ -269,9 +302,14 @@ module.exports = {
   canSaveSnippet,
   canExport,
   canUseVersionHistory,
+  canUseLanguage,
+  canUseTemplates,
+  normalizeLanguage,
   getMachineId,
   getServerUrl,
   ensureProductionServer,
   DEFAULT_SERVER,
   FREE_SNIPPET_LIMIT,
+  FREE_LANGUAGES,
+  PRO_LANGUAGES,
 };

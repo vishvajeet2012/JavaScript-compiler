@@ -156,10 +156,30 @@ async function init() {
   setLanguageUI(activeLanguage);
 }
 
-function setLanguageUI(lang) {
-  activeLanguage = lang || "javascript";
+const PRO_ONLY_LANGUAGES = new Set(["typescript", "html", "node"]);
+
+function isProLanguage(lang) {
+  return PRO_ONLY_LANGUAGES.has(String(lang || "").toLowerCase());
+}
+
+function setLanguageUI(lang, opts = {}) {
+  let next = lang || "javascript";
+  // Free plan cannot stay on Pro languages
+  if (!isPro && isProLanguage(next)) {
+    if (!opts.silent) {
+      showToast(
+        "TypeScript / HTML+JS / Node are Pro only. Activate Pro to unlock.",
+        "error",
+      );
+    }
+    next = "javascript";
+  }
+  activeLanguage = next;
   const sel = document.getElementById("file-language");
-  if (sel) sel.value = activeLanguage;
+  if (sel) {
+    sel.value = activeLanguage;
+    updateLanguageSelectProState();
+  }
   if (editor && monaco?.editor) {
     const model = editor.getModel();
     if (model) {
@@ -168,9 +188,31 @@ function setLanguageUI(lang) {
   }
 }
 
+function updateLanguageSelectProState() {
+  const sel = document.getElementById("file-language");
+  if (!sel) return;
+  Array.from(sel.options).forEach((opt) => {
+    const pro = isProLanguage(opt.value);
+    opt.disabled = pro && !isPro;
+    // Keep labels clear
+    if (opt.value === "typescript") {
+      opt.textContent = isPro ? "TypeScript" : "TypeScript (Pro)";
+    } else if (opt.value === "html") {
+      opt.textContent = isPro ? "HTML + JS" : "HTML + JS (Pro)";
+    } else if (opt.value === "node") {
+      opt.textContent = isPro ? "Node" : "Node (Pro)";
+    }
+  });
+  sel.title = isPro
+    ? "Language mode"
+    : "Free: JavaScript only · Pro: TypeScript, HTML+JS, Node";
+}
+
 function currentLanguage() {
   const sel = document.getElementById("file-language");
-  return sel?.value || activeLanguage || "javascript";
+  const v = sel?.value || activeLanguage || "javascript";
+  if (!isPro && isProLanguage(v)) return "javascript";
+  return v;
 }
 
 function defaultFileName(lang) {
@@ -623,8 +665,14 @@ function renderTemplates() {
   items.forEach((t) => {
     const card = document.createElement("button");
     card.className = "template-card";
-    card.innerHTML = `<h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p><span class="tpl-lang">${esc(t.language)}</span>`;
+    const proLang = isProLanguage(t.language);
+    card.innerHTML = `<h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p><span class="tpl-lang">${esc(t.language)}${proLang && !isPro ? " · Pro" : ""}</span>`;
     card.addEventListener("click", () => {
+      if (!isPro && isProLanguage(t.language)) {
+        showToast("This template needs Pro (TypeScript / HTML / Node).", "error");
+        openActivateModal();
+        return;
+      }
       if (isDirty && !confirm("Replace current code with template?")) return;
       setLanguageUI(t.language || "javascript");
       editor.setValue(t.code);
@@ -1013,15 +1061,30 @@ async function runCode() {
     return;
   }
 
+  const lang = currentLanguage();
+  if (!isPro && isProLanguage(lang)) {
+    showToast(
+      "TypeScript / HTML+JS / Node are Pro only. Activate Pro to run.",
+      "error",
+    );
+    openActivateModal();
+    return;
+  }
+
   document.getElementById("console").innerHTML = '<div class="log-line log" style="color:#666">Running...</div>';
   setRunState(true);
   const result = await window.compiler.runCode({
     code: editor.getValue(),
-    language: currentLanguage(),
+    language: lang,
   });
   setRunState(false);
   document.getElementById("console").innerHTML = "";
-  appendLogs(result.logs);
+  appendLogs(result.logs || []);
+  if (result.proRequired || result.blocked) {
+    showToast(result.logs?.[0]?.text || "Pro required", "error");
+    openActivateModal();
+    return;
+  }
   if (result.stopped) showToast("Infinite loop stopped — app is safe!", "error");
 }
 
@@ -1039,6 +1102,14 @@ function appendLogs(logs) {
 
 async function saveSnippet() {
   const lang = currentLanguage();
+  if (!isPro && isProLanguage(lang)) {
+    showToast(
+      "Cannot save TypeScript / HTML / Node on Free plan. Activate Pro.",
+      "error",
+    );
+    openActivateModal();
+    return;
+  }
   const title = document.getElementById("file-name").value.trim() || defaultFileName(lang);
   const code = editor.getValue();
   const result = await window.compiler.saveSnippet({
@@ -1068,6 +1139,12 @@ async function refreshProStatus() {
   const badge = document.getElementById("plan-badge");
   const btnActivate = document.getElementById("btn-activate");
   const metaEl = document.getElementById("license-meta");
+
+  // Enforce free-language lock whenever plan changes
+  updateLanguageSelectProState();
+  if (!isPro && isProLanguage(activeLanguage)) {
+    setLanguageUI("javascript", { silent: true });
+  }
 
   if (isPro) {
     const plan = status.planName || "Pro";
@@ -1180,7 +1257,18 @@ function bindEvents() {
   document.getElementById("btn-submit-activate").addEventListener("click", submitActivation);
 
   document.getElementById("file-language").addEventListener("change", (e) => {
-    setLanguageUI(e.target.value);
+    const lang = e.target.value;
+    if (!isPro && isProLanguage(lang)) {
+      e.target.value = "javascript";
+      setLanguageUI("javascript", { silent: true });
+      showToast(
+        "TypeScript, HTML+JS, and Node are Pro features. Activate Pro to unlock.",
+        "error",
+      );
+      openActivateModal();
+      return;
+    }
+    setLanguageUI(lang);
     isDirty = true;
     setAutoSaveStatus("");
   });

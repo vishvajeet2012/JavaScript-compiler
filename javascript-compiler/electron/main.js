@@ -205,6 +205,19 @@ ipcMain.handle("run-code", async (_, payload) => {
   // Backward compatible: string code OR { code, language }
   const raw = typeof payload === "string" ? payload : payload?.code;
   const language = typeof payload === "object" && payload ? payload.language : "javascript";
+
+  // Free plan: JavaScript only — TypeScript / HTML / Node are Pro
+  const langGate = activation.canUseLanguage(language);
+  if (!langGate.allowed) {
+    telemetry.trackEvent("run_code_blocked", { language: langGate.language || language });
+    return {
+      success: false,
+      logs: [{ type: "error", text: `🔒 ${langGate.message}` }],
+      blocked: true,
+      proRequired: true,
+    };
+  }
+
   const prepared = runner.prepareCode(raw, language || "javascript");
   telemetry.trackEvent("run_code", {
     codeLength: String(raw || "").length,
@@ -241,11 +254,16 @@ ipcMain.handle("save-snippet", (_, data) => {
     const check = activation.canSaveSnippet(count);
     if (!check.allowed) return { error: check.message };
   }
+  const langGate = activation.canUseLanguage(data.language || "javascript");
+  if (!langGate.allowed) {
+    return { error: langGate.message };
+  }
   const id = db.saveSnippet(data);
   telemetry.trackEvent("save_snippet", {
     isNew: !data.id,
     titleLength: String(data.title || "").length,
     codeLength: String(data.code || "").length,
+    language: data.language || "javascript",
   });
   return { id };
 });
