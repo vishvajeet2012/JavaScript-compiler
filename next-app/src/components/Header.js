@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import styles from './Header.module.css';
 import ServerStatus from './ServerStatus';
 import CommandSearch from './CommandSearch';
+import LogoMark from './LogoMark';
 
 export default function Header({ brand, serverOnline, health }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  const logo = brand?.logo || 'JS';
   const name = brand?.name || 'JS Compiler';
 
   const navLinks = [
@@ -34,11 +34,14 @@ export default function Header({ brand, serverOnline, health }) {
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
       <div className={styles.container}>
         <a href="#home" className={styles.logo} title={name}>
-          <span className={styles.logoMark}>{logo}</span>
-          <span>{name}</span>
+          <LogoMark className={styles.logoSvg} size={28} title={name} />
+          <span className={styles.logoText}>{name}</span>
         </a>
 
-        <nav className={`${styles.nav} ${menuOpen ? styles.navOpen : ''}`}>
+        <nav
+          className={`${styles.nav} ${menuOpen ? styles.navOpen : ''}`}
+          aria-label="Primary"
+        >
           {navLinks.map((link) => (
             <a
               key={link.label}
@@ -76,6 +79,7 @@ export default function Header({ brand, serverOnline, health }) {
           className={`${styles.hamburger} ${menuOpen ? styles.hamburgerOpen : ''}`}
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
+          aria-expanded={menuOpen}
         >
           <span />
           <span />
@@ -84,7 +88,11 @@ export default function Header({ brand, serverOnline, health }) {
       </div>
 
       {menuOpen ? (
-        <div className={styles.overlay} onClick={() => setMenuOpen(false)} />
+        <div
+          className={styles.overlay}
+          onClick={() => setMenuOpen(false)}
+          aria-hidden
+        />
       ) : null}
     </header>
   );

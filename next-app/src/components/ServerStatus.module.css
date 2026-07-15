@@ -2,7 +2,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  height: 32px;
+  padding: 0 10px;
   font-size: var(--text-xs);
   font-weight: 500;
   font-family: var(--font-mono);
@@ -10,6 +11,8 @@
   border: 1px solid var(--color-border);
   background: var(--color-bg-elevated);
   letter-spacing: 0.02em;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .dot {

@@ -156,8 +156,9 @@
 
 .plat {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.65rem;
   padding: 0.7rem 0.85rem;
   border-radius: 12px;
   border: 1px solid #2a2a2a;
@@ -172,11 +173,32 @@
   background: var(--color-bg-hover, #18181b);
 }
 
+.platIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #27272a);
+  background: var(--color-bg-elevated, #121214);
+  color: var(--color-emerald, #34d399);
+  line-height: 0;
+}
+
+.platText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
 .plat strong {
   font-size: 0.9rem;
 }
 
-.plat span {
+.platText span {
   font-size: 0.75rem;
   color: #888;
   word-break: break-all;

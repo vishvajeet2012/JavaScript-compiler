@@ -1,4 +1,5 @@
 import styles from './Footer.module.css';
+import LogoMark from './LogoMark';
 
 export default function Footer({ brand }) {
   const name = brand?.name || 'JS Compiler';
@@ -7,9 +8,12 @@ export default function Footer({ brand }) {
   return (
     <footer className={styles.footer}>
       <div className={styles.container}>
-        <p className={styles.copy}>
-          &copy; {year} {name}. Built by Vishvajeet Shukla.
-        </p>
+        <div className={styles.brandRow}>
+          <LogoMark className={styles.logoSvg} size={22} title={name} />
+          <p className={styles.copy}>
+            &copy; {year} {name}. Built by Vishvajeet Shukla.
+          </p>
+        </div>
 
         <div className={styles.socials}>
           <a

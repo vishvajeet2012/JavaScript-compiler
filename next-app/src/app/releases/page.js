@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getManagedHistoryReleases } from '@/lib/managed-releases';
 import { getLatestRelease } from '@/lib/releases';
+import OsIcon from '@/components/OsIcon';
 import styles from './releases.module.css';
 
 export const metadata = {
@@ -133,11 +134,16 @@ export default async function ReleasesHistoryPage() {
                           : undefined
                       }
                     >
-                      <strong>{p.label || p.id}</strong>
-                      <span>
-                        {[p.arch, p.fileName || p.file, size]
-                          .filter(Boolean)
-                          .join(' · ')}
+                      <span className={styles.platIcon}>
+                        <OsIcon id={p.id} size={16} />
+                      </span>
+                      <span className={styles.platText}>
+                        <strong>{p.label || p.id}</strong>
+                        <span>
+                          {[p.arch, p.fileName || p.file, size]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
                       </span>
                     </a>
                   );

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import styles from './Download.module.css';
+import OsIcon from './OsIcon';
 
 const defaults = {
   title: 'Download JS Compiler',
@@ -11,13 +12,6 @@ const defaults = {
   changelog: [],
   requirements: [],
 };
-
-function platformIcon(id) {
-  if (id === 'windows') return '🪟';
-  if (id === 'linux' || id === 'linux-deb') return '🐧';
-  if (id === 'mac' || id === 'mac-arm64' || id === 'mac-x64') return '🍎';
-  return '📦';
-}
 
 function formatBytes(n) {
   const num = Number(n);
@@ -152,9 +146,7 @@ export default function Download({ data }) {
                     disabled={Boolean(busyId)}
                   >
                     <div className={styles.cardTop}>
-                      <span className={styles.osIcon}>
-                        {platformIcon(p.id)}
-                      </span>
+                      <OsIcon id={p.id} className={styles.osIcon} size={20} />
                       <div>
                         <h3>{p.name}</h3>
                         {meta ? <p className={styles.meta}>{meta}</p> : null}
@@ -180,7 +172,7 @@ export default function Download({ data }) {
                   rel="noopener noreferrer"
                 >
                   <div className={styles.cardTop}>
-                    <span className={styles.osIcon}>{platformIcon(p.id)}</span>
+                    <OsIcon id={p.id} className={styles.osIcon} size={20} />
                     <div>
                       <h3>{p.name}</h3>
                       {meta ? <p className={styles.meta}>{meta}</p> : null}

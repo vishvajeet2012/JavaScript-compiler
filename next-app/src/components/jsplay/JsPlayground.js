@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import styles from './JsPlayground.module.css';
+import LogoMark from '@/components/LogoMark';
 import {
   DEFAULT_CODE,
   DEFAULT_TIMEOUT_SEC,
@@ -170,15 +170,7 @@ export default function JsPlayground() {
     <div className={styles.shell}>
       <header className={styles.header}>
         <a href="/jsplay" className={styles.brand} aria-label="JS Play home">
-          <span className={styles.logoWrap}>
-            <Image
-              src="/js-compiler-icon.png"
-              alt="JS Compiler logo"
-              width={36}
-              height={36}
-              priority
-            />
-          </span>
+          <LogoMark className={styles.logoSvg} size={28} title="JS Compiler" />
           <span className={styles.brandText}>
             <span className={styles.brandTitle}>JS PLAY</span>
             <span className={styles.brandSub}>Online playground · JS Compiler</span>

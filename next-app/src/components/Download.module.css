@@ -123,14 +123,26 @@
 }
 
 .osIcon {
-  font-size: 1.25rem;
   width: 40px;
   height: 40px;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   border-radius: var(--radius-md);
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
+  color: var(--color-emerald);
+  line-height: 0;
+}
+
+.osIcon svg {
+  display: block;
+}
+
+.card:hover:not(:disabled) .osIcon {
+  border-color: var(--color-border-hover);
+  color: var(--color-emerald-muted);
 }
 
 .cardTop h3 {
