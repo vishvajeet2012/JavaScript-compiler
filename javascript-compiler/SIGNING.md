@@ -31,6 +31,10 @@ npm.cmd run publish:win
 ## Publish checklist
 
 1. Bump `version` in `package.json` (e.g. `1.0.0` → `1.0.1`)
-2. Set `GH_TOKEN` with `repo` scope
-3. Set signing env vars (optional but recommended)
-4. `npm.cmd run publish:win`
+2. Commit & push `main`
+3. Create & push tag: `git tag v1.0.1` then `git push origin v1.0.1`
+4. GitHub Actions **Release Desktop App** builds Win/Linux/mac and publishes the release
+5. Optional local publish: set `GH_TOKEN` + `npm.cmd run publish:win`
+6. Signing env vars (`CSC_LINK`) optional but recommended for SmartScreen
+
+See also: `RELEASE_NOTES_1.0.1.md`
