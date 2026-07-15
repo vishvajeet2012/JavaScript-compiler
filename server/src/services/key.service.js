@@ -577,9 +577,9 @@ const DEFAULT_PLANS = [
     ],
   },
   {
-    name: 'One-Time Trial (paid)',
+    name: '7-Day Free Trial',
     code: 'ONETIME',
-    price: 49,
+    price: 0,
     currency: 'INR',
     durationDays: 7,
     maxDevices: 1,
@@ -587,8 +587,8 @@ const DEFAULT_PLANS = [
     planType: 'trial',
     seats: 1,
     sortOrder: 15,
-    description: '₹49 · 7-day single-use trial key, 1 device',
-    features: ['7 days', '1 device', 'One-time use'],
+    description: 'Free 7-day single-use trial key · full Pro · 1 device',
+    features: ['Free · 7 days', '1 device', 'One-time use', 'Full Pro features'],
   },
 ];
 
