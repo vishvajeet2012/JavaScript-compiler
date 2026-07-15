@@ -55,7 +55,8 @@ const getLandingContent = () => {
           arch: 'x64',
           file: 'JS Compiler-Setup-1.0.0.exe',
           label: 'Download for Windows',
-          href: 'https://github.com/vishvajeet2012/JavaScript-compiler/releases/latest/download/JS%20Compiler-Setup-1.0.0.exe',
+          // Next.js R2 download route (IP limit + private bucket). Relative path works on same origin.
+          href: '/api/download',
           note: 'NSIS installer · Auto-update enabled',
         },
         {

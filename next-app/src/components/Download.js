@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import styles from './Download.module.css';
 
 const defaults = {
@@ -9,11 +12,88 @@ const defaults = {
   requirements: [],
 };
 
+function formatRetry(sec) {
+  if (!sec || sec < 60) return `${sec || 0}s`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.ceil((sec % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m} min`;
+}
+
 export default function Download({ data }) {
   const d = { ...defaults, ...data };
   const platforms = d.platforms || [];
   const changelog = d.changelog || [];
   const requirements = d.requirements || [];
+  const [busyId, setBusyId] = useState(null);
+  const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+
+  const startAppDownload = async (platform) => {
+    const href = platform.href || '/api/download';
+    setBusyId(platform.id || platform.label);
+    setError('');
+    setInfo('');
+
+    try {
+      // Toolflow-style: hit API, follow to signed R2 URL, trigger browser save
+      const res = await fetch(href, {
+        method: 'GET',
+        redirect: 'manual',
+        cache: 'no-store',
+      });
+
+      // Opaque redirect (manual) — Location holds signed URL
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('Location');
+        if (location) {
+          const remaining = res.headers.get('X-Download-Remaining');
+          if (remaining != null) {
+            setInfo(`Download started. Remaining today for this network: ${remaining}`);
+          }
+          // Navigate so browser gets Content-Disposition + real .exe name
+          window.location.assign(location);
+          return;
+        }
+      }
+
+      // Some browsers treat 302 as opaqueredirect
+      if (res.type === 'opaqueredirect' || res.status === 0) {
+        window.location.assign(href);
+        return;
+      }
+
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({}));
+        const retry = body?.data?.retryAfterSec || body?.retryAfterSec;
+        setError(
+          body?.message ||
+            `Download limit reached (5 per 24h). Try again in ${formatRetry(retry)}.`,
+        );
+        return;
+      }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body?.message || `Download failed (${res.status})`);
+        return;
+      }
+
+      // Fallback: if API returned a body with url
+      const body = await res.json().catch(() => null);
+      if (body?.url) {
+        window.location.assign(body.url);
+        return;
+      }
+
+      window.location.assign(href);
+    } catch {
+      // Network / CORS edge cases — direct navigation still works
+      window.location.assign(href);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <section id="download" className={styles.section}>
@@ -25,29 +105,68 @@ export default function Download({ data }) {
           <span className={styles.versionBadge}>v{d.version}</span>
         </div>
 
+        {error ? (
+          <p className={styles.errorBanner} role="alert">
+            {error}
+          </p>
+        ) : null}
+        {info ? <p className={styles.infoBanner}>{info}</p> : null}
+
         <div className={styles.grid}>
           <div className={styles.cards}>
-            {platforms.map((p) => (
-              <a
-                key={p.id || p.label}
-                href={p.href}
-                className={styles.card}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <div className={styles.cardTop}>
-                  <span className={styles.osIcon}>
-                    {p.id === 'windows' ? '🪟' : '📦'}
-                  </span>
-                  <div>
-                    <h3>{p.name}</h3>
-                    {p.arch ? <p className={styles.meta}>{p.arch}</p> : null}
+            {platforms.map((p) => {
+              const isAppDownload =
+                typeof p.href === 'string' && p.href.startsWith('/api/download');
+              const busy = busyId === (p.id || p.label);
+
+              if (isAppDownload) {
+                return (
+                  <button
+                    key={p.id || p.label}
+                    type="button"
+                    className={styles.card}
+                    onClick={() => startAppDownload(p)}
+                    disabled={Boolean(busyId)}
+                  >
+                    <div className={styles.cardTop}>
+                      <span className={styles.osIcon}>
+                        {p.id === 'windows' ? '🪟' : '📦'}
+                      </span>
+                      <div>
+                        <h3>{p.name}</h3>
+                        {p.arch ? <p className={styles.meta}>{p.arch}</p> : null}
+                      </div>
+                    </div>
+                    <span className={styles.downloadBtn}>
+                      {busy ? 'Preparing download…' : p.label}
+                    </span>
+                    {p.note ? <p className={styles.note}>{p.note}</p> : null}
+                  </button>
+                );
+              }
+
+              return (
+                <a
+                  key={p.id || p.label}
+                  href={p.href}
+                  className={styles.card}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className={styles.cardTop}>
+                    <span className={styles.osIcon}>
+                      {p.id === 'windows' ? '🪟' : '📦'}
+                    </span>
+                    <div>
+                      <h3>{p.name}</h3>
+                      {p.arch ? <p className={styles.meta}>{p.arch}</p> : null}
+                    </div>
                   </div>
-                </div>
-                <span className={styles.downloadBtn}>{p.label}</span>
-                {p.note ? <p className={styles.note}>{p.note}</p> : null}
-              </a>
-            ))}
+                  <span className={styles.downloadBtn}>{p.label}</span>
+                  {p.note ? <p className={styles.note}>{p.note}</p> : null}
+                </a>
+              );
+            })}
           </div>
 
           <div className={styles.side}>

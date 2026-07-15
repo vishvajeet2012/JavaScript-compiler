@@ -24,7 +24,11 @@ let enforcing = false;
 let getMainWindow = () => null;
 
 function serverBase() {
-  return db.getSetting("activation_server", "https://java-script-server.vercel.app").replace(/\/$/, "");
+  try {
+    return require("./activation").getServerUrl().replace(/\/$/, "");
+  } catch {
+    return "https://java-script-server.vercel.app";
+  }
 }
 
 function policyCachePath() {

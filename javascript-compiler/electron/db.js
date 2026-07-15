@@ -311,11 +311,17 @@ function getAllSettings() {
   rows.forEach((r) => {
     result[r.key] = r.value;
   });
+  // Never surface a local/dev activation URL to the UI
+  result.activation_server = DEFAULT_SETTINGS.activation_server;
   return result;
 }
 
 function saveSettings(settings) {
-  Object.entries(settings).forEach(([key, value]) => setSetting(key, String(value)));
+  Object.entries(settings).forEach(([key, value]) => {
+    // Activation server is locked to production — ignore client overrides
+    if (key === "activation_server") return;
+    setSetting(key, String(value));
+  });
 }
 
 function saveDraft({ title, code, folderId, language }) {

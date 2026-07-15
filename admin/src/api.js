@@ -3,6 +3,11 @@ const API_BASE =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ||
   'https://java-script-server.vercel.app';
 
+/** Next.js app (R2 downloads + download stats) */
+const NEXT_APP_BASE =
+  import.meta.env.VITE_NEXT_APP_URL?.replace(/\/$/, '') ||
+  'https://jsplay-kappa.vercel.app';
+
 function getToken() {
   return localStorage.getItem('admin_token') || '';
 }
@@ -106,4 +111,24 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  /** R2 download counters from Next.js /api/download/stats */
+  downloadStats: async () => {
+    const token = getToken();
+    const res = await fetch(`${NEXT_APP_BASE}/api/download/stats`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'x-admin-secret': token,
+      },
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.message || `Download stats failed (${res.status})`;
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
 };

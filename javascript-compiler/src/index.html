@@ -13,8 +13,8 @@
   <!-- Titlebar -->
   <header class="titlebar">
     <div class="logo">
-      <div class="logo-icon">
-        <img src="assets/icons/js.svg" alt="" width="20" height="20" />
+      <div class="logo-icon" aria-hidden="true">
+        <img src="assets/icon.png" alt="JS Compiler" width="32" height="32" />
       </div>
       <span>JS COMPILER</span>
       <span id="app-version" class="version-badge" title="App version">v—</span>
@@ -174,10 +174,6 @@
             <option value="hc-black">High Contrast</option>
           </select>
         </label>
-        <label class="setting-row">
-          <span>Activation server URL</span>
-          <input type="text" id="set-server" class="setting-input" placeholder="https://java-script-server.vercel.app" />
-        </label>
         <div class="setting-divider"></div>
         <div class="setting-row setting-row-static">
           <span>App version</span>
@@ -187,6 +183,9 @@
           <span>Updates</span>
           <span id="settings-update-text" class="update-hint">—</span>
         </div>
+        <p class="update-help">
+          Updates install inside the app — no need to re-download from the website.
+        </p>
         <div class="update-actions">
           <button type="button" id="btn-check-update" class="btn-secondary">Check for updates</button>
           <button type="button" id="btn-install-update" class="btn-primary hidden">Restart & install</button>

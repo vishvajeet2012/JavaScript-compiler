@@ -50,6 +50,7 @@ export default function App() {
   const [crashStats, setCrashStats] = useState(null);
   const [orders, setOrders] = useState([]);
   const [orderQuery, setOrderQuery] = useState('');
+  const [downloadStats, setDownloadStats] = useState(null);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -64,7 +65,7 @@ export default function App() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [s, p, k, u, d, cs, cl, o] = await Promise.all([
+      const [s, p, k, u, d, cs, cl, o, dl] = await Promise.all([
         api.stats(),
         api.listPlans(),
         api.listKeys(keyFilter.status || keyFilter.q ? keyFilter : {}),
@@ -73,6 +74,7 @@ export default function App() {
         api.crashStats().catch(() => ({ data: null })),
         api.listCrashes().catch(() => ({ data: [] })),
         api.listOrders().catch(() => ({ data: [] })),
+        api.downloadStats().catch(() => ({ data: null })),
       ]);
       setStats(s.data);
       setPlans(p.data || []);
@@ -82,6 +84,7 @@ export default function App() {
       setCrashStats(cs.data);
       setCrashes(cl.data || []);
       setOrders(o.data || []);
+      setDownloadStats(dl.data);
     } catch (err) {
       if (err.status === 401) logout();
       showToast(err.message, 'error');
@@ -182,6 +185,7 @@ export default function App() {
             keys={keys}
             usage={usageOverview}
             orders={orders}
+            downloadStats={downloadStats}
             onSeed={async (force = false) => {
               try {
                 const res = await api.seed(force);
@@ -343,7 +347,7 @@ export default function App() {
   );
 }
 
-function Dashboard({ stats, plans, keys, usage, orders = [], onSeed }) {
+function Dashboard({ stats, plans, keys, usage, orders = [], downloadStats = null, onSeed }) {
   const recent = useMemo(() => keys.slice(0, 8), [keys]);
   return (
     <>
@@ -375,6 +379,8 @@ function Dashboard({ stats, plans, keys, usage, orders = [], onSeed }) {
         <Stat label="Total keys" value={stats?.totalKeys ?? '—'} />
         <Stat label="Active keys" value={stats?.activeKeys ?? '—'} />
         <Stat label="Orders" value={orders?.length ?? '—'} />
+        <Stat label="Total downloads" value={downloadStats?.total ?? '—'} />
+        <Stat label="Downloads today" value={downloadStats?.today ?? '—'} />
         <Stat label="Devices tracked" value={usage?.devices ?? '—'} />
         <Stat label="Total app time" value={usage?.totalDurationHuman ?? '—'} />
         <Stat label="Code runs" value={usage?.totalRuns ?? '—'} />

@@ -2,8 +2,7 @@ const { machineIdSync } = require("node-machine-id");
 const crypto = require("crypto");
 const { getActivation, saveActivation, clearActivation } = require("./db");
 
-// Main Express server (MongoDB-backed activation + admin keys)
-// Production Vercel API — override in Settings if needed
+// Production activation API only — never shown in Settings UI
 const DEFAULT_SERVER = "https://java-script-server.vercel.app";
 const FREE_SNIPPET_LIMIT = 5;
 
@@ -11,9 +10,29 @@ function getMachineId() {
   return crypto.createHash("sha256").update(machineIdSync(true)).digest("hex").slice(0, 32);
 }
 
+/** Always production URL (ignores old localhost settings). */
 function getServerUrl() {
-  const { getSetting } = require("./db");
-  return getSetting("activation_server", DEFAULT_SERVER);
+  return DEFAULT_SERVER;
+}
+
+/**
+ * Wipe stale local overrides (e.g. http://localhost:5000) so activation
+ * always hits production after update.
+ */
+function ensureProductionServer() {
+  try {
+    const { setSetting, getSetting } = require("./db");
+    const current = String(getSetting("activation_server", "") || "");
+    if (
+      !current ||
+      current !== DEFAULT_SERVER ||
+      /localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(current)
+    ) {
+      setSetting("activation_server", DEFAULT_SERVER);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function cacheLicenseMeta(result) {
@@ -71,7 +90,7 @@ async function validateOnline(key, machineId) {
     if (err.name === "AbortError") {
       return { success: false, message: "Server timeout — check internet connection" };
     }
-    return { success: false, message: "Cannot reach activation server. Is it running?" };
+    return { success: false, message: "Cannot reach activation server. Check your internet connection." };
   }
 }
 
@@ -241,5 +260,8 @@ module.exports = {
   canExport,
   canUseVersionHistory,
   getMachineId,
+  getServerUrl,
+  ensureProductionServer,
+  DEFAULT_SERVER,
   FREE_SNIPPET_LIMIT,
 };

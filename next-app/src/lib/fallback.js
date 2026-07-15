@@ -25,6 +25,14 @@ export const FALLBACK_LANDING = {
     title: 'Download JS Compiler',
     subtitle: 'Free desktop app for Windows. Auto-updates when a new release is published.',
     version: '1.0.0',
+    // R2-backed download (see /api/download + R2_* env). Secrets stay in .env.local only.
+    r2: {
+      bucket: 'javascript',
+      endpoint: 'https://0308caae65c4e6f5ca902d8fd0fbad41.r2.cloudflarestorage.com',
+      accountId: '0308caae65c4e6f5ca902d8fd0fbad41',
+      objectKey: 'releases/JS-Compiler-Setup-1.0.0.exe',
+      filename: 'JS Compiler-Setup-1.0.0.exe',
+    },
     platforms: [
       {
         id: 'windows',
@@ -32,7 +40,8 @@ export const FALLBACK_LANDING = {
         arch: 'x64',
         file: 'JS Compiler-Setup-1.0.0.exe',
         label: 'Download for Windows',
-        href: 'https://github.com/vishvajeet2012/JavaScript-compiler/releases/latest/download/JS%20Compiler-Setup-1.0.0.exe',
+        // App-controlled download (IP rate limit + R2). Do not point to raw R2 public URL.
+        href: '/api/download',
         note: 'NSIS installer · Auto-update enabled',
       },
       {

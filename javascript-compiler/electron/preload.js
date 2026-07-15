@@ -23,7 +23,8 @@ contextBridge.exposeInMainWorld("compiler", {
   verifyActivation: () => ipcRenderer.invoke("verify-activation"),
   getMachineId: () => ipcRenderer.invoke("get-machine-id"),
   getSnippetLimit: () => ipcRenderer.invoke("get-snippet-limit"),
-  setActivationServer: (url) => ipcRenderer.invoke("set-activation-server", url),
+  // No-op for older UI; server is always production
+  setActivationServer: () => ipcRenderer.invoke("set-activation-server"),
   getSettings: () => ipcRenderer.invoke("get-settings"),
   saveSettings: (s) => ipcRenderer.invoke("save-settings", s),
   saveDraft: (data) => ipcRenderer.invoke("save-draft", data),

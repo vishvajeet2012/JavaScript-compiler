@@ -64,7 +64,7 @@
         }
       ],
       "icon": "assets/icon.png",
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "JS-Compiler-Setup-${version}.${ext}",
       "publisherName": ["vishvajeetshukla.in"],
       "signingHashAlgorithms": ["sha256"],
       "rfc3161TimeStampServer": "http://timestamp.digicert.com",

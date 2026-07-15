@@ -3,6 +3,9 @@ const { autoUpdater } = require("electron-updater");
 
 let mainWindow = null;
 let initialized = false;
+let checkInFlight = false;
+let pollTimer = null;
+
 let updateStatus = {
   status: "idle",
   currentVersion: app.getVersion(),
@@ -13,9 +16,27 @@ let updateStatus = {
 };
 
 function sendStatus(partial) {
-  updateStatus = { ...updateStatus, ...partial, currentVersion: app.getVersion() };
+  updateStatus = {
+    ...updateStatus,
+    ...partial,
+    currentVersion: app.getVersion(),
+    isDev: !app.isPackaged,
+  };
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-status", updateStatus);
+  }
+}
+
+function configureFeed() {
+  // Explicit GitHub Releases feed — users update inside the app, no re-download from site
+  try {
+    autoUpdater.setFeedURL({
+      provider: "github",
+      owner: "vishvajeet2012",
+      repo: "JavaScript-compiler",
+    });
+  } catch (err) {
+    console.warn("[updater] setFeedURL:", err.message);
   }
 }
 
@@ -25,13 +46,13 @@ function setupAutoUpdater(win) {
   if (initialized) return;
   initialized = true;
 
-  // Windows NSIS + GitHub Releases
+  configureFeed();
+
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
 
-  // Differential updates when available
   try {
     autoUpdater.disableDifferentialDownload = false;
   } catch {
@@ -58,10 +79,12 @@ function setupAutoUpdater(win) {
   });
 
   autoUpdater.on("update-not-available", () => {
+    checkInFlight = false;
     sendStatus({
       status: "not-available",
       availableVersion: null,
       error: null,
+      progress: null,
     });
   });
 
@@ -79,6 +102,7 @@ function setupAutoUpdater(win) {
   });
 
   autoUpdater.on("update-downloaded", async (info) => {
+    checkInFlight = false;
     sendStatus({
       status: "downloaded",
       availableVersion: info.version,
@@ -88,26 +112,47 @@ function setupAutoUpdater(win) {
 
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
+    const notes =
+      typeof info.releaseNotes === "string"
+        ? info.releaseNotes.slice(0, 500)
+        : Array.isArray(info.releaseNotes)
+          ? info.releaseNotes
+              .map((n) => n.note || n)
+              .join("\n")
+              .slice(0, 500)
+          : "";
+
     const result = await dialog.showMessageBox(mainWindow, {
       type: "info",
       title: "Update ready",
-      message: `Version ${info.version} has been downloaded.`,
-      detail: "Restart now to install the update, or later when you quit the app.",
+      message: `Version ${info.version} is ready to install.`,
+      detail:
+        (notes ? `${notes}\n\n` : "") +
+        "Restart now to install, or later when you quit the app. You do not need to download again from the website.",
       buttons: ["Restart now", "Later"],
       defaultId: 0,
       cancelId: 1,
     });
 
     if (result.response === 0) {
-      // isSilent=false, isForceRunAfter=true (Windows NSIS)
       setImmediate(() => autoUpdater.quitAndInstall(false, true));
     }
   });
 
   autoUpdater.on("error", (err) => {
+    checkInFlight = false;
+    const msg = err?.message || String(err);
+    // Soft message for offline / rate limits
+    let friendly = msg;
+    if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::/i.test(msg)) {
+      friendly = "No internet connection. Try again when online.";
+    } else if (/404|Cannot find latest/i.test(msg)) {
+      friendly = "No update feed found yet. A new release will enable updates.";
+    }
     sendStatus({
       status: "error",
-      error: err?.message || String(err),
+      error: friendly,
+      progress: null,
     });
   });
 
@@ -129,12 +174,57 @@ function setupAutoUpdater(win) {
       return { ok: false, ...updateStatus };
     }
 
+    if (checkInFlight) {
+      return { ok: true, ...updateStatus, message: "Check already in progress" };
+    }
+
+    if (updateStatus.status === "downloaded") {
+      return { ok: true, ...updateStatus };
+    }
+
+    checkInFlight = true;
+    configureFeed();
+
     try {
       const result = await autoUpdater.checkForUpdates();
-      return { ok: true, updateInfo: result?.updateInfo || null, ...updateStatus };
+      // Let status events settle so UI gets accurate state
+      await new Promise((r) => setTimeout(r, 400));
+
+      if (
+        updateStatus.status === "checking" &&
+        result?.updateInfo?.version &&
+        result.updateInfo.version !== app.getVersion()
+      ) {
+        sendStatus({
+          status: "available",
+          availableVersion: result.updateInfo.version,
+          error: null,
+        });
+      }
+
+      if (
+        updateStatus.status === "checking" &&
+        (!result?.updateInfo ||
+          result.updateInfo.version === app.getVersion())
+      ) {
+        checkInFlight = false;
+        sendStatus({
+          status: "not-available",
+          availableVersion: null,
+          error: null,
+        });
+      }
+
+      return {
+        ok: true,
+        updateInfo: result?.updateInfo || null,
+        ...updateStatus,
+      };
     } catch (err) {
-      sendStatus({ status: "error", error: err.message });
-      return { ok: false, error: err.message, ...updateStatus };
+      checkInFlight = false;
+      const msg = err.message || String(err);
+      sendStatus({ status: "error", error: msg });
+      return { ok: false, error: msg, ...updateStatus };
     }
   });
 
@@ -146,17 +236,43 @@ function setupAutoUpdater(win) {
     return { ok: false, error: "No update downloaded yet." };
   });
 
-  // Packaged app: check after launch, then every 4 hours
+  // Packaged app: check shortly after launch, then every 4 hours
   if (app.isPackaged) {
     setTimeout(() => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        console.warn("[updater] Initial check failed:", err.message);
-      });
+      if (checkInFlight) return;
+      checkInFlight = true;
+      autoUpdater
+        .checkForUpdates()
+        .catch((err) => {
+          checkInFlight = false;
+          console.warn("[updater] Initial check failed:", err.message);
+        })
+        .then(() => {
+          // if still "checking" after promise, clear flag on not-available path via events
+          setTimeout(() => {
+            if (updateStatus.status === "checking") checkInFlight = false;
+          }, 15000);
+        });
     }, 8000);
 
-    setInterval(() => {
-      autoUpdater.checkForUpdates().catch(() => {});
+    pollTimer = setInterval(() => {
+      if (checkInFlight || updateStatus.status === "downloaded") return;
+      checkInFlight = true;
+      autoUpdater
+        .checkForUpdates()
+        .catch(() => {
+          checkInFlight = false;
+        })
+        .then(() => {
+          setTimeout(() => {
+            if (updateStatus.status === "checking") checkInFlight = false;
+          }, 15000);
+        });
     }, 4 * 60 * 60 * 1000);
+
+    app.on("before-quit", () => {
+      if (pollTimer) clearInterval(pollTimer);
+    });
   } else {
     sendStatus({ status: "idle", isDev: true, error: null });
   }

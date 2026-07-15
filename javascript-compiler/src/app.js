@@ -220,8 +220,8 @@ function applyUpdateStatus(data) {
   const btnCheck = document.getElementById("btn-check-update");
 
   if (data.currentVersion) {
-    versionEl.textContent = `v${data.currentVersion}`;
-    settingsVer.textContent = `v${data.currentVersion}`;
+    if (versionEl) versionEl.textContent = `v${data.currentVersion}`;
+    if (settingsVer) settingsVer.textContent = `v${data.currentVersion}`;
   }
 
   let titleMsg = "";
@@ -233,88 +233,116 @@ function applyUpdateStatus(data) {
       titleMsg = "Checking updates…";
       settingsMsg = "Checking for updates…";
       if (btnCheck) btnCheck.disabled = true;
+      if (progressWrap) progressWrap.classList.add("hidden");
+      if (btnInstall) btnInstall.classList.add("hidden");
       break;
     case "available":
       titleMsg = `Update ${data.availableVersion}`;
       titleClass += " update-warn";
-      settingsMsg = `Version ${data.availableVersion} available — downloading…`;
+      settingsMsg = `Version ${data.availableVersion} found — downloading…`;
+      if (btnCheck) btnCheck.disabled = true;
       break;
     case "downloading": {
       const pct = data.progress?.percent ?? 0;
       titleMsg = `Downloading ${pct}%`;
       titleClass += " update-warn";
       settingsMsg = `Downloading update… ${pct}%`;
-      progressWrap.classList.remove("hidden");
-      progressFill.style.width = `${pct}%`;
-      progressLabel.textContent = `${pct}%`;
+      if (progressWrap) progressWrap.classList.remove("hidden");
+      if (progressFill) progressFill.style.width = `${pct}%`;
+      if (progressLabel) progressLabel.textContent = `${pct}%`;
+      if (btnCheck) btnCheck.disabled = true;
       break;
     }
     case "downloaded":
       titleMsg = "Update ready";
       titleClass += " update-ok";
       settingsMsg = `v${data.availableVersion} ready — restart to install`;
-      progressWrap.classList.remove("hidden");
-      progressFill.style.width = "100%";
-      progressLabel.textContent = "100%";
-      btnInstall.classList.remove("hidden");
+      if (progressWrap) progressWrap.classList.remove("hidden");
+      if (progressFill) progressFill.style.width = "100%";
+      if (progressLabel) progressLabel.textContent = "100%";
+      if (btnInstall) btnInstall.classList.remove("hidden");
       if (btnCheck) btnCheck.disabled = false;
       break;
     case "not-available":
       titleMsg = "";
       settingsMsg = data.isDev
-        ? "Packaged app required for auto-update"
+        ? "Auto-update works in the installed app"
         : "You have the latest version";
-      progressWrap.classList.add("hidden");
-      btnInstall.classList.add("hidden");
+      if (progressWrap) progressWrap.classList.add("hidden");
+      if (btnInstall) btnInstall.classList.add("hidden");
       if (btnCheck) btnCheck.disabled = false;
       break;
     case "error":
       titleMsg = data.isDev ? "" : "Update error";
       titleClass += data.isDev ? "" : " update-err";
       settingsMsg = data.error || "Update check failed";
+      if (progressWrap) progressWrap.classList.add("hidden");
       if (btnCheck) btnCheck.disabled = false;
       break;
     default:
       settingsMsg = data.isDev
         ? "Auto-update works after install (packaged build)"
-        : "Ready";
+        : "Ready — click Check for updates anytime";
       if (btnCheck) btnCheck.disabled = false;
   }
 
-  if (titleMsg) {
-    titleStatus.textContent = titleMsg;
-    titleStatus.className = titleClass;
-  } else {
-    titleStatus.textContent = "";
-    titleStatus.className = "update-status hidden";
+  if (titleStatus) {
+    if (titleMsg) {
+      titleStatus.textContent = titleMsg;
+      titleStatus.className = titleClass;
+    } else {
+      titleStatus.textContent = "";
+      titleStatus.className = "update-status hidden";
+    }
   }
 
-  settingsText.textContent = settingsMsg;
+  if (settingsText) settingsText.textContent = settingsMsg;
 }
 
 async function checkForUpdatesManual() {
   const btn = document.getElementById("btn-check-update");
-  btn.disabled = true;
-  btn.textContent = "Checking…";
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Checking…";
+  }
   try {
     const result = await window.compiler.checkForUpdates();
     applyUpdateStatus(result);
+
     if (result.isDev || result.error?.includes("packaged")) {
-      showToast("Auto-update only works in the installed app.", "error");
-    } else if (result.status === "not-available" || result.ok) {
+      showToast("Auto-update only works in the installed (Setup) app.", "error");
+    } else if (result.status === "error") {
+      showToast(result.error || "Update check failed", "error");
+    } else if (result.status === "not-available") {
+      showToast("You're on the latest version.", "success");
+    } else if (
+      result.status === "available" ||
+      result.status === "downloading" ||
+      result.status === "downloaded" ||
+      result.updateInfo
+    ) {
+      const ver =
+        result.availableVersion ||
+        result.updateInfo?.version ||
+        "new version";
+      showToast(`Update found: v${ver}. Downloading…`, "success");
+    } else if (result.ok) {
       showToast("Update check complete.", "success");
     }
   } catch (e) {
     showToast(e.message || "Update check failed", "error");
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Check for updates";
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Check for updates";
+    }
   }
 }
 
 async function installUpdateNow() {
   const result = await window.compiler.installUpdate();
   if (!result.ok) showToast(result.error || "No update ready", "error");
+  else showToast("Restarting to install update…", "success");
 }
 
 // ── Settings ──────────────────────────────────────────────
@@ -329,8 +357,6 @@ async function openSettings() {
   document.getElementById("set-autosave-interval").value = settings.auto_save_interval || "30";
   document.getElementById("set-timeout").value = settings.execution_timeout || "5";
   document.getElementById("set-theme").value = settings.editor_theme || "vs-dark";
-  document.getElementById("set-server").value =
-    settings.activation_server || "https://java-script-server.vercel.app";
   try {
     const version = await window.compiler.getAppVersion();
     document.getElementById("settings-version").textContent = `v${version}`;
@@ -346,10 +372,8 @@ async function saveSettingsForm() {
     auto_save_interval: document.getElementById("set-autosave-interval").value,
     execution_timeout: document.getElementById("set-timeout").value,
     editor_theme: document.getElementById("set-theme").value,
-    activation_server: document.getElementById("set-server").value.trim(),
   };
   await window.compiler.saveSettings(settings);
-  await window.compiler.setActivationServer(settings.activation_server);
   applyTheme(settings.editor_theme);
   restartAutoSave();
   closeModal("modal-settings");

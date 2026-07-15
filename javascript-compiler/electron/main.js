@@ -164,6 +164,8 @@ app.whenReady().then(async () => {
   if (!IS_PRIMARY_INSTANCE) return;
 
   db.initDb();
+  // Always use production activation API (wipe old localhost:5000 overrides)
+  activation.ensureProductionServer();
   // Silent crash reports (offline queue → server)
   startCrashReporter();
   // Silent usage tracking — offline queue, sync when online (no UI)
@@ -310,9 +312,10 @@ ipcMain.handle("get-snippet-limit", () => ({
   limit: activation.FREE_SNIPPET_LIMIT,
   isPro: activation.isProActive(),
 }));
-ipcMain.handle("set-activation-server", (_, url) => {
-  db.setSetting("activation_server", url);
-  return { ok: true };
+// Activation server is fixed to production — UI no longer exposes this
+ipcMain.handle("set-activation-server", () => {
+  activation.ensureProductionServer();
+  return { ok: true, server: activation.DEFAULT_SERVER };
 });
 
 // ── Version history (Pro) ────────────────────────────────

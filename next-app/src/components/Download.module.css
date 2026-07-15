@@ -61,6 +61,10 @@
 
 .card {
   display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
   text-decoration: none;
   color: inherit;
   background: linear-gradient(145deg, rgba(26, 26, 40, 0.95), rgba(12, 12, 20, 0.98));
@@ -70,10 +74,38 @@
   transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.card:hover {
+.card:hover:not(:disabled) {
   border-color: rgba(124, 58, 237, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.card:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.errorBanner,
+.infoBanner {
+  max-width: 640px;
+  margin: 0 auto 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.errorBanner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.infoBanner {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
 }
 
 .cardTop {
