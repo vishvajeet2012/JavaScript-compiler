@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { Worker } = require("worker_threads");
@@ -10,6 +10,7 @@ const telemetry = require("./telemetry");
 const protection = require("./protection");
 const { startCrashReporter } = require("./crash-reporter");
 const packages = require("./packages");
+const terminalBackend = require("./terminal");
 
 // Windows toast / jump-list identity
 if (process.platform === "win32") {
@@ -68,101 +69,159 @@ function killActiveWorker() {
   }
 }
 
-function runCodeInWorker(code) {
+// Serializer source, injected as text into sandboxes (see electron/inspect.js).
+// The trailing module.exports block is dropped so the source can be inlined
+// into contexts that have no CommonJS module wrapper.
+const INSPECT_SOURCE = fs
+  .readFileSync(path.join(__dirname, "inspect.js"), "utf8")
+  .replace(/module\.exports[\s\S]*$/, "");
+
+function buildWorkerSource() {
+  return `
+${INSPECT_SOURCE}
+
+const { parentPort } = require('worker_threads');
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
+parentPort.on('message', ({ code, timeoutMs, lineOffset, lineMappable }) => {
+  const emit = (entry) => { try { parentPort.postMessage({ t: 'log', entry }); } catch {} };
+  const original = {
+    log: console.log, error: console.error, warn: console.warn,
+    info: console.info, debug: console.debug,
+  };
+  let stackOffset = null;
+
+  const capture = (type) => (...args) => {
+    let line = null;
+    if (lineMappable && stackOffset !== null) {
+      line = userLineFromStack(new Error().stack, stackOffset, lineOffset);
+    }
+    emit({ type, line, parts: serializeArgs(args) });
+  };
+
+  const restore = () => {
+    console.log = original.log;
+    console.error = original.error;
+    console.warn = original.warn;
+    console.info = original.info;
+    console.debug = original.debug;
+  };
+
+  const run = async () => {
+    let compiled = null;
+    try {
+      try {
+        compiled = new AsyncFunction(code);
+        stackOffset = measureLineOffset(AsyncFunction);
+      } catch {
+        compiled = new Function(code);
+        stackOffset = measureLineOffset(Function);
+      }
+      if (lineMappable && stackOffset !== null) {
+        setStackTransform((s) => cleanStack(s, stackOffset, lineOffset));
+      }
+    } catch (e) {
+      emit({ type: 'error', line: null, parts: [serializeArg(e)] });
+      parentPort.postMessage({ t: 'done', success: false, stopped: false });
+      return;
+    }
+
+    console.log = capture('log');
+    console.error = capture('error');
+    console.warn = capture('warn');
+    console.info = capture('info');
+    console.debug = capture('log');
+
+    try {
+      let result = compiled();
+      if (result && typeof result.then === 'function') result = await result;
+      if (result !== undefined) {
+        emit({ type: 'result', line: null, parts: [serializeArg(result)] });
+      }
+      restore();
+      parentPort.postMessage({ t: 'done', success: true, stopped: false });
+    } catch (e) {
+      const line = lineMappable && stackOffset !== null
+        ? userLineFromStack(e && e.stack, stackOffset, lineOffset)
+        : null;
+      emit({ type: 'error', line, parts: [serializeArg(e)] });
+      restore();
+      parentPort.postMessage({ t: 'done', success: false, stopped: false });
+    }
+  };
+
+  const timer = setTimeout(() => {
+    restore();
+    emit({
+      type: 'error',
+      line: null,
+      parts: [{ k: 'text', v: '⛔ Async execution timeout (' + (timeoutMs / 1000) + 's)' }],
+    });
+    parentPort.postMessage({ t: 'done', success: false, stopped: true });
+  }, timeoutMs);
+
+  run().finally(() => clearTimeout(timer));
+});
+`;
+}
+
+function runCodeInWorker(code, { lineOffset = 0, lineMappable = true } = {}) {
   killActiveWorker();
 
   return new Promise((resolve) => {
     const timeoutMs = getExecutionTimeoutMs();
-
-    const workerCode = `
-      const { parentPort } = require('worker_threads');
-      parentPort.on('message', ({ code, timeoutMs }) => {
-        const logs = [];
-        const origLog = console.log;
-        const origErr = console.error;
-        const origWarn = console.warn;
-        console.log = (...a) => logs.push({ type:'log', text: a.map(String).join(' ') });
-        console.error = (...a) => logs.push({ type:'error', text: a.map(String).join(' ') });
-        console.warn = (...a) => logs.push({ type:'warn', text: a.map(String).join(' ') });
-
-        const restore = () => {
-          console.log = origLog;
-          console.error = origErr;
-          console.warn = origWarn;
-        };
-
-        const run = async () => {
-          try {
-            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-            let fn;
-            try { fn = new AsyncFunction(code); } catch { fn = new Function(code); }
-
-            let result = fn();
-            if (result && typeof result.then === 'function') {
-              result = await result;
-            }
-            if (result !== undefined) logs.push({ type:'result', text: String(result) });
-            parentPort.postMessage({ success: true, logs, stopped: false });
-          } catch(e) {
-            parentPort.postMessage({
-              success: false,
-              logs: logs.length ? logs.concat({ type:'error', text: e.message }) : [{ type:'error', text: e.message }],
-              stopped: false
-            });
-          } finally {
-            restore();
-          }
-        };
-
-        const timer = setTimeout(() => {
-          restore();
-          parentPort.postMessage({
-            success: false,
-            stopped: true,
-            logs: [{ type:'error', text: '⛔ Async execution timeout (' + (timeoutMs/1000) + 's)' }]
-          });
-        }, timeoutMs);
-
-        run().finally(() => clearTimeout(timer));
-      });
-    `;
-
-    const worker = new Worker(workerCode, { eval: true });
+    const worker = new Worker(buildWorkerSource(), { eval: true });
     activeWorker = worker;
 
-    const timeout = setTimeout(() => {
-      worker.terminate();
-      activeWorker = null;
-      resolve({
-        success: false,
-        stopped: true,
-        logs: [{
-          type: "error",
-          text: `⛔ Execution stopped — infinite loop or timeout (${timeoutMs / 1000}s limit). App is safe.`,
-        }],
-      });
-    }, timeoutMs + 500);
-
-    worker.on("message", (result) => {
+    // Logs stream in so partial output survives a timeout / infinite loop.
+    const logs = [];
+    let settled = false;
+    const finish = (payload) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
       worker.terminate();
       activeWorker = null;
-      resolve(result);
+      resolve(payload);
+    };
+
+    const timeout = setTimeout(() => {
+      logs.push({
+        type: "error",
+        line: null,
+        parts: [{
+          k: "text",
+          v: `⛔ Execution stopped — infinite loop or timeout (${timeoutMs / 1000}s limit). App is safe.`,
+        }],
+      });
+      finish({ success: false, stopped: true, logs });
+    }, timeoutMs + 500);
+
+    worker.on("message", (msg) => {
+      if (!msg || typeof msg !== "object") return;
+      if (msg.t === "log") {
+        logs.push(msg.entry);
+        return;
+      }
+      if (msg.t === "done") {
+        finish({ success: !!msg.success, stopped: !!msg.stopped, logs });
+      }
     });
 
     worker.on("error", (err) => {
-      clearTimeout(timeout);
-      worker.terminate();
-      activeWorker = null;
-      resolve({ success: false, logs: [{ type: "error", text: err.message }] });
+      logs.push({ type: "error", line: null, parts: [{ k: "text", v: err.message }] });
+      finish({ success: false, logs });
     });
 
-    worker.postMessage({ code, timeoutMs });
+    worker.postMessage({ code, timeoutMs, lineOffset, lineMappable });
   });
 }
 
 app.whenReady().then(async () => {
   if (!IS_PRIMARY_INSTANCE) return;
+
+  // No native menu/accelerators — custom titlebar owns all shortcuts
+  Menu.setApplicationMenu(null);
 
   db.initDb();
   // Always use production activation API (wipe old localhost:5000 overrides)
@@ -184,6 +243,7 @@ app.whenReady().then(async () => {
 
 app.on("window-all-closed", () => {
   killActiveWorker();
+  terminalBackend.stop();
   if (process.platform !== "darwin") app.quit();
 });
 
@@ -194,6 +254,7 @@ app.on("before-quit", (e) => {
   e.preventDefault();
   isQuitting = true;
   killActiveWorker();
+  terminalBackend.stop();
   telemetry
     .flushOnQuit()
     .catch(() => {})
@@ -201,6 +262,11 @@ app.on("before-quit", (e) => {
 });
 
 // ── Code Execution ────────────────────────────────────────
+
+/** Plain-text console entry in the structured log format. */
+function textLog(type, text) {
+  return { type, line: null, parts: [{ k: "text", v: text }] };
+}
 
 ipcMain.handle("run-code", async (_, payload) => {
   // Backward compatible: string code OR { code, language }
@@ -213,7 +279,7 @@ ipcMain.handle("run-code", async (_, payload) => {
     telemetry.trackEvent("run_code_blocked", { language: langGate.language || language });
     return {
       success: false,
-      logs: [{ type: "error", text: `🔒 ${langGate.message}` }],
+      logs: [textLog("error", `🔒 ${langGate.message}`)],
       blocked: true,
       proRequired: true,
     };
@@ -232,23 +298,10 @@ ipcMain.handle("run-code", async (_, payload) => {
     const result = await packages.runNodeCode(raw, { timeoutMs });
     if (result.success && Array.isArray(result.logs)) {
       const listed = packages.listPackages();
-      if (listed.packages?.length) {
-        result.logs = [
-          {
-            type: "info",
-            text: `ℹ Node sandbox packages: ${listed.packages.slice(0, 12).join(", ")}${listed.packages.length > 12 ? "…" : ""}`,
-          },
-          ...result.logs,
-        ];
-      } else {
-        result.logs = [
-          {
-            type: "info",
-            text: "ℹ Node mode: use npm install panel for packages (e.g. lodash), then require('lodash')",
-          },
-          ...result.logs,
-        ];
-      }
+      const note = listed.packages?.length
+        ? `ℹ Node sandbox packages: ${listed.packages.slice(0, 12).join(", ")}${listed.packages.length > 12 ? "…" : ""}`
+        : "ℹ Node mode: use npm install panel for packages (e.g. lodash), then require('lodash')";
+      result.logs = [textLog("info", note), ...result.logs];
     }
     return result;
   }
@@ -258,9 +311,12 @@ ipcMain.handle("run-code", async (_, payload) => {
     codeLength: String(raw || "").length,
     language: prepared.language,
   });
-  const result = await runCodeInWorker(prepared.code);
+  const result = await runCodeInWorker(prepared.code, {
+    lineOffset: prepared.lineOffset,
+    lineMappable: prepared.lineMappable,
+  });
   if (prepared.note && Array.isArray(result.logs)) {
-    result.logs = [{ type: "warn", text: `ℹ ${prepared.note}` }, ...result.logs];
+    result.logs = [textLog("warn", `ℹ ${prepared.note}`), ...result.logs];
   }
   return result;
 });
@@ -285,15 +341,41 @@ ipcMain.handle("npm-remove", async (_, spec) => {
   return res;
 });
 
+// ── Integrated terminal (Pro) ─────────────────────────────
+
+ipcMain.handle("terminal-start", () => {
+  if (!activation.isProActive()) {
+    return {
+      ok: false,
+      error: "Integrated terminal is a Pro feature. Activate Pro to use it.",
+      proRequired: true,
+    };
+  }
+  const cwd = packages.sandboxRoot();
+  const result = terminalBackend.start(cwd, {
+    onData: (text) => mainWindow?.webContents.send("terminal-data", text),
+    onCwd: (cwd2) => mainWindow?.webContents.send("terminal-cwd", cwd2),
+    onDone: () => mainWindow?.webContents.send("terminal-done"),
+    onExit: (code) => mainWindow?.webContents.send("terminal-exit", code),
+  });
+  if (result.ok) telemetry.trackEvent("terminal_start", {});
+  return result;
+});
+
+ipcMain.handle("terminal-input", (_, line) => terminalBackend.sendCommand(line));
+
+ipcMain.handle("terminal-kill", () => {
+  terminalBackend.stop();
+  return { ok: true };
+});
+
 ipcMain.handle("stop-code", () => {
   const wasRunning = !!activeWorker;
   killActiveWorker();
   if (wasRunning) telemetry.trackEvent("stop_code", {});
   return {
     stopped: wasRunning,
-    logs: wasRunning
-      ? [{ type: "warn", text: "⏹ Execution stopped by user." }]
-      : [],
+    logs: wasRunning ? [textLog("warn", "⏹ Execution stopped by user.")] : [],
   };
 });
 
@@ -425,6 +507,14 @@ ipcMain.handle("save-draft", (_, data) => {
 });
 
 ipcMain.handle("get-draft", () => db.getDraft());
+
+// Whole editor session (all open tabs, saved or not)
+ipcMain.handle("save-session", (_, session) => {
+  db.saveSession(session);
+  return { ok: true };
+});
+
+ipcMain.handle("get-session", () => db.getSession());
 
 ipcMain.handle("clear-draft", () => {
   db.clearDraft();

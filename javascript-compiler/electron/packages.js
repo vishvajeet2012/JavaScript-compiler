@@ -9,6 +9,21 @@ const path = require("path");
 const { spawn } = require("child_process");
 const activation = require("./activation");
 
+// Serializer source, inlined into the child script. Plain `node` cannot read
+// files inside an asar archive, so it is injected as text rather than required.
+const INSPECT_SOURCE = fs
+  .readFileSync(path.join(__dirname, "inspect.js"), "utf8")
+  .replace(/module\.exports[\s\S]*$/, "");
+
+// Marks the child's structured result line so user stdout writes can't be
+// mistaken for it.
+const RESULT_PREFIX = "\u0000JSC";
+
+/** Plain-text console entry in the structured log format. */
+function textLog(type, text) {
+  return { type, line: null, parts: [{ k: "text", v: text }] };
+}
+
 const SAFE_PKG =
   /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[a-z0-9-._~+]+)?$/i;
 
@@ -231,18 +246,19 @@ function runNodeCode(code, { timeoutMs = 10000 } = {}) {
   if (!gate.ok) {
     return Promise.resolve({
       success: false,
-      logs: [{ type: "error", text: `🔒 ${gate.error}` }],
+      logs: [textLog("error", `🔒 ${gate.error}`)],
       blocked: true,
       proRequired: true,
     });
   }
 
   const cwd = sandboxRoot();
-  const nodeBin = process.execPath; // Electron binary — use system node if available
-  // Prefer system `node` for real modules; fall back to electron as node is risky
+  // Prefer system `node` for real modules; running electron as node is risky
   const tryNode = process.platform === "win32" ? "node.exe" : "node";
 
   const runnerScript = `
+${INSPECT_SOURCE}
+
 const Module = require('module');
 const path = require('path');
 const cwd = process.cwd();
@@ -253,34 +269,53 @@ Module._nodeModulePaths = function(from) {
   if (!paths.includes(nm)) paths.unshift(nm);
   return paths;
 };
+
 const logs = [];
-const push = (type, args) => {
+let stackOffset = null;
+const capture = (type) => (...args) => {
   logs.push({
     type,
-    text: args.map((a) => {
-      if (typeof a === 'string') return a;
-      if (a instanceof Error) return a.stack || a.message;
-      try { return JSON.stringify(a); } catch { return String(a); }
-    }).join(' '),
+    line: stackOffset === null ? null : userLineFromStack(new Error().stack, stackOffset, 0),
+    parts: serializeArgs(args),
   });
 };
-console.log = (...a) => push('log', a);
-console.info = (...a) => push('info', a);
-console.warn = (...a) => push('warn', a);
-console.error = (...a) => push('error', a);
+console.log = capture('log');
+console.info = capture('info');
+console.warn = capture('warn');
+console.error = capture('error');
+console.debug = capture('log');
+
+const emit = (payload) => {
+  process.stdout.write('\\u0000JSC' + JSON.stringify(payload) + '\\n');
+};
+
 (async () => {
+  const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+  const source = ${JSON.stringify(String(code || ""))};
+  let fn;
   try {
-    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-    let fn;
-    try { fn = new AsyncFunction(${JSON.stringify(String(code || ""))}); }
-    catch { fn = new Function(${JSON.stringify(String(code || ""))}); }
+    try { fn = new AsyncFunction(source); stackOffset = measureLineOffset(AsyncFunction); }
+    catch { fn = new Function(source); stackOffset = measureLineOffset(Function); }
+    if (stackOffset !== null) setStackTransform((s) => cleanStack(s, stackOffset, 0));
+  } catch (e) {
+    logs.push({ type: 'error', line: null, parts: [serializeArg(e)] });
+    emit({ success: false, logs });
+    return;
+  }
+  try {
     let result = fn();
     if (result && typeof result.then === 'function') result = await result;
-    if (result !== undefined) push('result', [result]);
-    process.stdout.write(JSON.stringify({ success: true, logs }) + '\\n');
+    if (result !== undefined) {
+      logs.push({ type: 'result', line: null, parts: [serializeArg(result)] });
+    }
+    emit({ success: true, logs });
   } catch (e) {
-    push('error', [e && e.message ? e.message : String(e)]);
-    process.stdout.write(JSON.stringify({ success: false, logs }) + '\\n');
+    logs.push({
+      type: 'error',
+      line: stackOffset === null ? null : userLineFromStack(e && e.stack, stackOffset, 0),
+      parts: [serializeArg(e)],
+    });
+    emit({ success: false, logs });
   }
 })();
 `;
@@ -316,12 +351,7 @@ console.error = (...a) => push('error', a);
         success: false,
         stopped: true,
         timedOut: true,
-        logs: [
-          {
-            type: "error",
-            text: `⛔ Auto-paused — Node script timeout (${timeoutMs / 1000}s)`,
-          },
-        ],
+        logs: [textLog("error", `⛔ Auto-paused — Node script timeout (${timeoutMs / 1000}s)`)],
       });
     }, timeoutMs);
 
@@ -338,45 +368,55 @@ console.error = (...a) => push('error', a);
         done({
           success: false,
           logs: [
-            {
-              type: "error",
-              text:
-                "Node.js not found on PATH. Install Node.js from https://nodejs.org so npm install and package require() work.",
-            },
+            textLog(
+              "error",
+              "Node.js not found on PATH. Install Node.js from https://nodejs.org so npm install and package require() work.",
+            ),
           ],
         });
         return;
       }
-      done({
-        success: false,
-        logs: [{ type: "error", text: e.message }],
-      });
+      done({ success: false, logs: [textLog("error", e.message)] });
     });
 
     child.on("close", () => {
-      const lines = out
-        .trim()
-        .split("\n")
-        .filter(Boolean);
-      const last = lines[lines.length - 1];
-      try {
-        const parsed = JSON.parse(last);
-        if (err.trim()) {
-          parsed.logs = parsed.logs || [];
-          parsed.logs.push({ type: "warn", text: err.trim().slice(0, 500) });
+      // The child's structured result is the line tagged with RESULT_PREFIX;
+      // anything else the user wrote to stdout is shown as its own log line.
+      const lines = out.split("\n");
+      let parsed = null;
+      const rawStdout = [];
+      for (const line of lines) {
+        const idx = line.indexOf(RESULT_PREFIX);
+        if (idx !== -1) {
+          if (idx > 0) rawStdout.push(line.slice(0, idx));
+          try {
+            parsed = JSON.parse(line.slice(idx + RESULT_PREFIX.length));
+          } catch {
+            /* keep looking */
+          }
+          continue;
         }
-        done(parsed);
-      } catch {
+        if (line.trim()) rawStdout.push(line);
+      }
+
+      if (!parsed) {
         done({
           success: false,
-          logs: [
-            {
-              type: "error",
-              text: err.trim() || out.trim() || "Node process failed",
-            },
-          ],
+          logs: [textLog("error", err.trim() || out.trim() || "Node process failed")],
         });
+        return;
       }
+
+      parsed.logs = parsed.logs || [];
+      if (rawStdout.length) {
+        parsed.logs = rawStdout
+          .map((t) => textLog("log", t))
+          .concat(parsed.logs);
+      }
+      if (err.trim()) {
+        parsed.logs.push(textLog("warn", err.trim().slice(0, 500)));
+      }
+      done(parsed);
     });
   });
 }

@@ -14,6 +14,20 @@ let snippets = [];
 let templateFilter = "all";
 const openFolders = new Set();
 
+// ── Multi-tab editing ───────────────────────────────────────
+let tabs = [];
+let activeTabUid = null;
+let tabUidCounter = 0;
+
+// ── Integrated terminal (Pro) ────────────────────────────────
+let term = null;
+let fitAddon = null;
+let termInputBuffer = "";
+let termStarted = false;
+let termLastCwd = "";
+let termCleanups = [];
+let termResizeBound = false;
+
 const ICONS = {
   js: "assets/icons/js.svg",
   folder: "assets/icons/folder-default.svg",
@@ -141,17 +155,217 @@ require(["vs/editor/editor.main"], () => {
   editor.onDidChangeModelContent(() => {
     isDirty = true;
     setAutoSaveStatus("");
+    const tab = activeTab();
+    if (tab && !tab.dirty) {
+      tab.dirty = true;
+      renderTabBar();
+    }
+    persistSession();
   });
+
+  // Last-chance flush so nothing typed is lost on quit
+  window.addEventListener("beforeunload", () => persistSession({ immediate: true }));
 
   init();
 });
+
+// ── Tabs ──────────────────────────────────────────────────
+
+function activeTab() {
+  return tabs.find((t) => t.uid === activeTabUid) || null;
+}
+
+function fileNameInput() {
+  return document.getElementById("file-name");
+}
+
+function syncActiveTab() {
+  const tab = activeTab();
+  if (!tab || !editor) return;
+  tab.snippetId = activeSnippetId;
+  tab.folderId = activeFolderId;
+  tab.language = activeLanguage;
+  tab.dirty = isDirty;
+  tab.title = fileNameInput().value.trim() || defaultFileName(activeLanguage);
+  tab.viewState = editor.saveViewState();
+}
+
+function createTab({ snippetId = null, folderId = null, language = "javascript", title, code = DEFAULT_CODE } = {}) {
+  const lang = !isPro && isProLanguage(language) ? "javascript" : language;
+  const uid = ++tabUidCounter;
+  const model = monaco.editor.createModel(code, MONACO_LANG[lang] || "javascript");
+  const tab = {
+    uid,
+    snippetId,
+    folderId,
+    language: lang,
+    title: title || defaultFileName(lang),
+    model,
+    viewState: null,
+    dirty: false,
+  };
+  tabs.push(tab);
+  activateTab(uid);
+  return tab;
+}
+
+function activateTab(uid) {
+  const next = tabs.find((t) => t.uid === uid);
+  if (!next) return;
+  if (activeTabUid && activeTabUid !== uid) syncActiveTab();
+
+  activeTabUid = uid;
+  activeSnippetId = next.snippetId;
+  activeFolderId = next.folderId;
+  isDirty = next.dirty;
+
+  editor.setModel(next.model);
+  if (next.viewState) editor.restoreViewState(next.viewState);
+  fileNameInput().value = next.title;
+  setLanguageUI(next.language, { silent: true });
+  editor.focus();
+
+  renderTabBar();
+  renderFileTree();
+  updateNpmBarVisibility();
+  setAutoSaveStatus("");
+  persistSession();
+}
+
+function tabForSnippet(snippetId) {
+  return tabs.find((t) => t.snippetId === snippetId);
+}
+
+async function closeTab(uid) {
+  const idx = tabs.findIndex((t) => t.uid === uid);
+  if (idx === -1) return;
+  const tab = tabs[idx];
+  if (uid === activeTabUid) syncActiveTab();
+
+  if (tab.dirty && !confirm(`"${tab.title}" has unsaved changes. Close anyway?`)) return;
+
+  tab.model.dispose();
+  tabs.splice(idx, 1);
+
+  if (!tabs.length) {
+    activeTabUid = null;
+    createTab({});
+    return;
+  }
+  if (uid === activeTabUid) {
+    activeTabUid = null;
+    activateTab(tabs[Math.min(idx, tabs.length - 1)].uid);
+  } else {
+    renderTabBar();
+  }
+  persistSession({ immediate: true });
+}
+
+// ── Session persistence ───────────────────────────────────
+//
+// Every open tab is written to the local DB, including tabs that were never
+// saved as snippets. Nothing typed is lost to an accidental close, a crash or
+// a restart.
+
+const MAX_PERSISTED_CODE = 2 * 1024 * 1024;
+let sessionSaveTimer = null;
+
+function persistSession({ immediate = false } = {}) {
+  if (sessionSaveTimer) clearTimeout(sessionSaveTimer);
+  const write = () => {
+    sessionSaveTimer = null;
+    if (!editor || !tabs.length) return;
+    syncActiveTab();
+    const payload = {
+      activeUid: activeTabUid,
+      tabs: tabs.map((tab) => ({
+        uid: tab.uid,
+        snippetId: tab.snippetId,
+        folderId: tab.folderId,
+        language: tab.language,
+        title: tab.title,
+        dirty: tab.dirty,
+        code: tab.model.getValue().slice(0, MAX_PERSISTED_CODE),
+      })),
+    };
+    window.compiler.saveSession(JSON.stringify(payload));
+  };
+  if (immediate) write();
+  else sessionSaveTimer = setTimeout(write, 600);
+}
+
+async function restoreSession() {
+  let session = null;
+  try {
+    session = await window.compiler.getSession();
+  } catch {
+    session = null;
+  }
+  if (!session?.tabs?.length) return false;
+
+  session.tabs.forEach((saved) => {
+    createTab({
+      snippetId: saved.snippetId ?? null,
+      folderId: saved.folderId ?? null,
+      language: saved.language || "javascript",
+      title: saved.title,
+      code: typeof saved.code === "string" ? saved.code : "",
+    });
+    const tab = activeTab();
+    if (tab) {
+      tab.dirty = !!saved.dirty;
+      tab.restoredUid = saved.uid;
+    }
+  });
+
+  const target = tabs.find((t) => t.restoredUid === session.activeUid) || tabs[0];
+  if (target) activateTab(target.uid);
+  isDirty = activeTab()?.dirty || false;
+  renderTabBar();
+  return true;
+}
+
+function renderTabBar() {
+  const bar = document.getElementById("tab-bar");
+  if (!bar) return;
+  const current = activeTab();
+  if (current) {
+    current.title = fileNameInput().value.trim() || defaultFileName(activeLanguage);
+    current.dirty = isDirty;
+  }
+
+  bar.innerHTML = "";
+  tabs.forEach((tab) => {
+    const el = document.createElement("div");
+    el.className = "editor-tab" + (tab.uid === activeTabUid ? " active" : "");
+    el.title = tab.title;
+    el.innerHTML = `
+      <span class="editor-tab-name">${esc(tab.title)}</span>
+      <span class="editor-tab-dirty">${tab.dirty ? "●" : ""}</span>
+      <button class="editor-tab-close" title="Close (Ctrl+W)">×</button>
+    `;
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".editor-tab-close")) return;
+      if (tab.uid !== activeTabUid) activateTab(tab.uid);
+    });
+    el.querySelector(".editor-tab-close").addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeTab(tab.uid);
+    });
+    bar.appendChild(el);
+  });
+}
 
 async function init() {
   settings = await window.compiler.getSettings();
   applyTheme(settings.editor_theme || "vs-dark");
   await refreshProStatus();
   await refreshWorkspace();
-  await restoreDraftOrDefault();
+  const restored = await restoreSession();
+  if (!restored) {
+    createTab({});
+    await restoreDraftOrDefault();
+  }
   renderTemplates();
   startAutoSave();
   bindEvents();
@@ -702,6 +916,8 @@ async function performAutoSave() {
     });
     if (!result.error) {
       isDirty = false;
+      syncActiveTab();
+      renderTabBar();
       setAutoSaveStatus("saved");
       await refreshWorkspace();
     }
@@ -736,6 +952,8 @@ async function restoreDraftOrDefault() {
     activeFolderId = draft.folderId;
     setLanguageUI(draft.language || "javascript");
     isDirty = false;
+    syncActiveTab();
+    renderTabBar();
     showToast("Draft restored", "success");
   }
 }
@@ -760,14 +978,14 @@ function renderTemplates() {
         openActivateModal();
         return;
       }
-      if (isDirty && !confirm("Replace current code with template?")) return;
-      setLanguageUI(t.language || "javascript");
-      editor.setValue(t.code);
       const ext = LANG_EXT[t.language] || "js";
-      document.getElementById("file-name").value =
-        t.name.toLowerCase().replace(/\s+/g, "-") + `.${ext}`;
-      activeSnippetId = null;
+      createTab({
+        language: t.language || "javascript",
+        title: t.name.toLowerCase().replace(/\s+/g, "-") + `.${ext}`,
+        code: t.code,
+      });
       isDirty = true;
+      renderTabBar();
       closeModal("modal-templates");
       showToast(`Template "${t.name}" loaded`, "success");
     });
@@ -852,7 +1070,7 @@ async function openHistoryModal() {
         return;
       }
       if (res.snippet) {
-        loadSnippet(res.snippet);
+        loadSnippet(res.snippet, { replaceContent: true });
         showToast("Snapshot restored", "success");
         closeModal("modal-history");
         await refreshWorkspace();
@@ -1031,7 +1249,11 @@ function renderSnippet(snippet, depth) {
     e.stopPropagation();
     if (confirm(`Delete "${snippet.title}"?`)) {
       await window.compiler.deleteSnippet(snippet.id);
-      if (activeSnippetId === snippet.id) resetEditor();
+      const openTab = tabForSnippet(snippet.id);
+      if (openTab) {
+        openTab.dirty = false;
+        await closeTab(openTab.uid);
+      }
       await refreshWorkspace();
     }
   });
@@ -1090,38 +1312,43 @@ async function promptRenameSnippet(snippet) {
     language: snippet.language || "javascript",
     folderId: snippet.folder_id,
   });
-  if (activeSnippetId === snippet.id) document.getElementById("file-name").value = title.trim();
+  const openTab = tabForSnippet(snippet.id);
+  if (openTab) {
+    openTab.title = title.trim();
+    if (openTab.uid === activeTabUid) document.getElementById("file-name").value = title.trim();
+    renderTabBar();
+  }
   await refreshWorkspace();
 }
 
 function newSnippetInFolder(folderId) {
-  activeSnippetId = null;
-  activeFolderId = folderId;
-  setLanguageUI("javascript");
-  editor.setValue(DEFAULT_CODE);
-  document.getElementById("file-name").value = defaultFileName("javascript");
-  isDirty = true;
   openFolders.add(folderId);
-  renderFileTree();
+  createTab({ folderId });
 }
 
-function loadSnippet(snippet) {
-  activeSnippetId = snippet.id;
-  activeFolderId = snippet.folder_id;
-  setLanguageUI(snippet.language || "javascript");
-  editor.setValue(snippet.code);
-  document.getElementById("file-name").value = snippet.title;
-  isDirty = false;
-  renderFileTree();
+function loadSnippet(snippet, { replaceContent = false } = {}) {
+  const existing = tabForSnippet(snippet.id);
+  if (existing) {
+    activateTab(existing.uid);
+    if (replaceContent) {
+      editor.setValue(snippet.code);
+      isDirty = false;
+      existing.dirty = false;
+      renderTabBar();
+    }
+    return;
+  }
+  createTab({
+    snippetId: snippet.id,
+    folderId: snippet.folder_id,
+    language: snippet.language || "javascript",
+    title: snippet.title,
+    code: snippet.code,
+  });
 }
 
 function resetEditor() {
-  activeSnippetId = null;
-  activeFolderId = null;
-  setLanguageUI("javascript");
-  editor.setValue(DEFAULT_CODE);
-  document.getElementById("file-name").value = defaultFileName("javascript");
-  isDirty = false;
+  createTab({});
   window.compiler.clearDraft();
 }
 
@@ -1158,31 +1385,285 @@ async function runCode() {
     return;
   }
 
-  document.getElementById("console").innerHTML = '<div class="log-line log" style="color:#666">Running...</div>';
+  showPanel("console");
+  document.getElementById("console").innerHTML =
+    '<div class="out-row meta"><div class="out-content"><span class="jv-text">Running…</span></div><span class="out-gutter"></span></div>';
   setRunState(true);
+  const startedAt = performance.now();
   const result = await window.compiler.runCode({
     code: editor.getValue(),
     language: lang,
   });
   setRunState(false);
+  const elapsed = Math.round(performance.now() - startedAt);
   document.getElementById("console").innerHTML = "";
   appendLogs(result.logs || []);
+  appendLogs([{ type: "meta", text: `— finished in ${elapsed}ms` }]);
   if (result.proRequired || result.blocked) {
-    showToast(result.logs?.[0]?.text || "Pro required", "error");
+    showToast(logToText(result.logs?.[0]) || "Pro required", "error");
     openActivateModal();
     return;
   }
   if (result.stopped) showToast("Infinite loop stopped — app is safe!", "error");
 }
 
+// ── Rich console rendering ────────────────────────────────
+//
+// The main process sends each console entry as { type, line, parts } where
+// every part is a serialized value tree (see electron/inspect.js). Objects,
+// arrays, maps and sets render as collapsible nodes; the source line the call
+// came from is shown in a right-hand gutter.
+
+const OPEN_TOKEN = { array: "[", object: "{", map: "{", set: "{" };
+const CLOSE_TOKEN = { array: "]", object: "}", map: "}", set: "}" };
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function isContainer(node) {
+  return node && (node.k === "array" || node.k === "object" || node.k === "map" || node.k === "set");
+}
+
+/** Header label for a container, e.g. `Map(2)`, `Array(50)`, `Foo`. */
+function containerLabel(node) {
+  if (node.k === "map") return `Map(${node.size})`;
+  if (node.k === "set") return `Set(${node.size})`;
+  if (node.k === "array") {
+    if (node.ctor) return `${node.ctor}(${node.len})`;
+    return node.len > 6 ? `Array(${node.len})` : "";
+  }
+  return node.ctor || "";
+}
+
+/** Single-line rendering used for collapsed previews and nested values. */
+function renderInline(node, depth = 0) {
+  const span = el("span", "jv-inline");
+  if (!node) {
+    span.appendChild(el("span", "jv-undefined", "undefined"));
+    return span;
+  }
+
+  switch (node.k) {
+    case "text":
+      span.appendChild(el("span", "jv-text", node.v));
+      return span;
+    case "string":
+      span.appendChild(
+        el("span", "jv-string", depth === 0 ? node.v : `'${node.v.replace(/'/g, "\\'")}'`),
+      );
+      if (node.truncated) span.appendChild(el("span", "jv-muted", `… ${node.len} chars`));
+      return span;
+    case "number":
+      span.appendChild(el("span", "jv-number", node.v));
+      return span;
+    case "bigint":
+      span.appendChild(el("span", "jv-number", node.v));
+      return span;
+    case "boolean":
+      span.appendChild(el("span", "jv-boolean", String(node.v)));
+      return span;
+    case "null":
+      span.appendChild(el("span", "jv-null", "null"));
+      return span;
+    case "undefined":
+      span.appendChild(el("span", "jv-undefined", "undefined"));
+      return span;
+    case "symbol":
+      span.appendChild(el("span", "jv-symbol", node.v));
+      return span;
+    case "function":
+    case "class":
+      span.appendChild(el("span", "jv-function", node.v));
+      return span;
+    case "date":
+      span.appendChild(el("span", "jv-date", node.v));
+      return span;
+    case "regexp":
+      span.appendChild(el("span", "jv-regexp", node.v));
+      return span;
+    case "error":
+      span.appendChild(el("span", "jv-error-val", node.v));
+      return span;
+    case "circular":
+      span.appendChild(el("span", "jv-muted", "[Circular]"));
+      return span;
+    case "truncated":
+      span.appendChild(el("span", "jv-muted", "…"));
+      return span;
+    case "thrown":
+      span.appendChild(el("span", "jv-muted", `[getter threw: ${node.v}]`));
+      return span;
+    case "opaque":
+      span.appendChild(el("span", "jv-muted", node.v));
+      return span;
+    case "arraybuffer":
+      span.appendChild(el("span", "jv-muted", `${node.ctor}(${node.size})`));
+      return span;
+    case "promise": {
+      span.appendChild(el("span", "jv-muted", "Promise { "));
+      if (node.state === "pending" || node.state === "unknown") {
+        span.appendChild(el("span", "jv-promise-state", `<${node.state}>`));
+      } else {
+        span.appendChild(el("span", "jv-promise-state", `<${node.state}>: `));
+        span.appendChild(renderInline(node.value, depth + 1));
+      }
+      span.appendChild(el("span", "jv-muted", " }"));
+      return span;
+    }
+    default:
+      break;
+  }
+
+  // Containers — one level of preview, deeper nesting collapses to a glyph
+  const label = containerLabel(node);
+  if (label) span.appendChild(el("span", "jv-ctor", `${label} `));
+
+  if (depth > 1) {
+    span.appendChild(el("span", "jv-muted", node.k === "array" ? "[…]" : "{…}"));
+    return span;
+  }
+
+  span.appendChild(el("span", "jv-punct", `${OPEN_TOKEN[node.k]} `));
+  const children = containerChildren(node);
+  const shown = children.slice(0, 6);
+  shown.forEach((child, i) => {
+    if (i > 0) span.appendChild(el("span", "jv-punct", ", "));
+    if (child.key !== null) {
+      span.appendChild(el("span", "jv-key", child.key));
+      span.appendChild(el("span", "jv-punct", ": "));
+    }
+    span.appendChild(renderInline(child.value, depth + 1));
+  });
+  if (children.length > shown.length || node.truncated) {
+    span.appendChild(el("span", "jv-muted", `, … ${children.length - shown.length} more`));
+  }
+  span.appendChild(el("span", "jv-punct", ` ${CLOSE_TOKEN[node.k]}`));
+  return span;
+}
+
+/** Normalizes every container into a `{ key, value }` child list. */
+function containerChildren(node) {
+  if (node.k === "array") {
+    return node.items.map((v, i) => ({ key: null, value: v, index: i }));
+  }
+  if (node.k === "set") {
+    return node.items.map((v, i) => ({ key: null, value: v, index: i }));
+  }
+  if (node.k === "map") {
+    return node.entries.map(([k, v], i) => ({ key: null, keyNode: k, value: v, index: i }));
+  }
+  return node.entries.map(([k, v], i) => ({ key: k, value: v, index: i }));
+}
+
+/** Block-level rendering: collapsible for containers, inline for the rest. */
+function renderValue(node, depth = 0, forceCollapsed = false) {
+  if (!isContainer(node)) {
+    if (node && node.k === "error" && node.stack) {
+      const wrap = el("div", "jv-block");
+      const head = el("div", "jv-head");
+      head.appendChild(el("span", "jv-tri", "▸"));
+      head.appendChild(el("span", "jv-error-val", node.v));
+      const body = el("pre", "jv-stack hidden", node.stack);
+      head.addEventListener("click", () => {
+        const open = body.classList.toggle("hidden");
+        head.querySelector(".jv-tri").textContent = open ? "▸" : "▾";
+      });
+      wrap.appendChild(head);
+      wrap.appendChild(body);
+      return wrap;
+    }
+    return renderInline(node, depth);
+  }
+
+  const children = containerChildren(node);
+  // Objects, maps and sets open at the top level; arrays and anything nested
+  // stay collapsed so long output stays scannable.
+  const startExpanded =
+    !forceCollapsed && depth === 0 && node.k !== "array" && children.length > 0;
+
+  const wrap = el("div", "jv-block");
+  const head = el("div", "jv-head");
+  const tri = el("span", "jv-tri", startExpanded ? "▾" : "▸");
+  head.appendChild(tri);
+
+  const collapsedView = renderInline(node, depth);
+  const expandedHead = el("span", "jv-inline");
+  const label = containerLabel(node);
+  if (label) expandedHead.appendChild(el("span", "jv-ctor", `${label} `));
+  expandedHead.appendChild(el("span", "jv-punct", OPEN_TOKEN[node.k]));
+
+  head.appendChild(collapsedView);
+  head.appendChild(expandedHead);
+
+  const body = el("div", "jv-body");
+  children.forEach((child) => {
+    const row = el("div", "jv-row");
+    if (child.keyNode) {
+      row.appendChild(renderInline(child.keyNode, depth + 1));
+      row.appendChild(el("span", "jv-punct", " => "));
+    } else if (child.key !== null) {
+      row.appendChild(el("span", "jv-key", child.key));
+      row.appendChild(el("span", "jv-punct", ": "));
+    }
+    row.appendChild(renderValue(child.value, depth + 1, true));
+    body.appendChild(row);
+  });
+  if (node.truncated) {
+    body.appendChild(el("div", "jv-row jv-muted", "… more entries not shown"));
+  }
+  const foot = el("div", "jv-foot", CLOSE_TOKEN[node.k]);
+
+  const apply = (expanded) => {
+    tri.textContent = expanded ? "▾" : "▸";
+    collapsedView.classList.toggle("hidden", expanded);
+    expandedHead.classList.toggle("hidden", !expanded);
+    body.classList.toggle("hidden", !expanded);
+    foot.classList.toggle("hidden", !expanded);
+  };
+  apply(startExpanded);
+  head.addEventListener("click", () => apply(body.classList.contains("hidden")));
+
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+  wrap.appendChild(foot);
+  return wrap;
+}
+
+/** Flattened text of a log entry — used for toasts and copying. */
+function logToText(entry) {
+  if (!entry) return "";
+  if (typeof entry.text === "string") return entry.text;
+  return (entry.parts || [])
+    .map((p) => {
+      if (p.k === "text" || p.k === "string") return p.v;
+      if (p.k === "error") return p.v;
+      if (p.v !== undefined) return String(p.v);
+      return p.k;
+    })
+    .join(" ");
+}
+
 function appendLogs(logs) {
   const consoleEl = document.getElementById("console");
-  logs.forEach((log) => {
-    const line = document.createElement("div");
-    line.className = `log-line ${log.type}`;
-    line.textContent = log.type === "result" ? `→ ${log.text}` : log.text;
-    consoleEl.appendChild(line);
+  (logs || []).forEach((entry) => {
+    const row = el("div", `out-row ${entry.type || "log"}`);
+    const content = el("div", "out-content");
+    // Legacy plain-text entries stay supported.
+    const parts = entry.parts || [{ k: "text", v: entry.text || "" }];
+    parts.forEach((part, i) => {
+      if (i > 0) content.appendChild(el("span", "jv-punct", " "));
+      content.appendChild(renderValue(part, 0));
+    });
+    row.appendChild(content);
+    const gutter = el("span", "out-gutter", entry.line ? `L${entry.line}` : "");
+    row.appendChild(gutter);
+    consoleEl.appendChild(row);
   });
+  consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 // ── Save ──────────────────────────────────────────────────
@@ -1211,6 +1692,9 @@ async function saveSnippet() {
 
   activeSnippetId = result.id;
   isDirty = false;
+  syncActiveTab();
+  renderTabBar();
+  persistSession({ immediate: true });
   await window.compiler.clearDraft();
   setAutoSaveStatus("saved");
   await refreshWorkspace();
@@ -1299,16 +1783,156 @@ async function submitActivation() {
 
 function showToast(msg, type) {
   const consoleEl = document.getElementById("console");
-  const line = document.createElement("div");
-  line.className = `log-line ${type === "error" ? "error" : "log"}`;
-  line.textContent = msg;
-  consoleEl.prepend(line);
+  const row = el("div", `out-row ${type === "error" ? "error" : "log"}`);
+  row.appendChild(el("div", "out-content", msg));
+  row.appendChild(el("span", "out-gutter", ""));
+  consoleEl.prepend(row);
 }
 
 function esc(str) {
   const d = document.createElement("div");
   d.textContent = str;
   return d.innerHTML;
+}
+
+// ── Terminal (Pro) ────────────────────────────────────────
+
+function showPanel(which) {
+  const isTerm = which === "terminal";
+  document.getElementById("console").classList.toggle("hidden", isTerm);
+  document.getElementById("terminal-panel").classList.toggle("hidden", !isTerm);
+  document.getElementById("btn-panel-console").classList.toggle("active", !isTerm);
+  document.getElementById("btn-panel-terminal").classList.toggle("active", isTerm);
+  if (isTerm) {
+    ensureTerminal();
+  }
+}
+
+function termPrompt() {
+  if (!term) return;
+  const dir = termLastCwd ? termLastCwd.split(/[\\/]/).pop() : "sandbox";
+  term.write(`\r\n\x1b[35m${dir}\x1b[0m \x1b[36m›\x1b[0m `);
+}
+
+async function ensureTerminal() {
+  const container = document.getElementById("terminal-container");
+  if (!container) return;
+
+  if (!isPro) {
+    container.innerHTML = `
+      <div class="terminal-locked">
+        <div>🔒 Integrated terminal is a Pro feature.</div>
+        <div>Run npm, node, and git commands inside the app.</div>
+      </div>`;
+    return;
+  }
+  if (termStarted) {
+    fitAddon?.fit();
+    term?.focus();
+    return;
+  }
+  if (typeof Terminal === "undefined") {
+    container.innerHTML = '<div class="terminal-locked">Terminal library failed to load. Check your internet connection and restart.</div>';
+    return;
+  }
+
+  // A previous shell may have exited — drop its listeners before wiring new
+  // ones, otherwise every chunk gets written once per past session.
+  termCleanups.forEach((off) => {
+    try {
+      off();
+    } catch {
+      /* already detached */
+    }
+  });
+  termCleanups = [];
+  if (term) {
+    try {
+      term.dispose();
+    } catch {
+      /* already disposed */
+    }
+    term = null;
+  }
+
+  container.innerHTML = "";
+  term = new Terminal({
+    fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+    fontSize: 13,
+    cursorBlink: true,
+    convertEol: true,
+    theme: { background: "#0a0a0f", foreground: "#e8e8f0", cursor: "#a78bfa" },
+  });
+  fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(container);
+  fitAddon.fit();
+
+  const started = await window.compiler.startTerminal();
+  if (!started.ok) {
+    term.write(`\x1b[31m${started.error || "Terminal failed to start"}\x1b[0m\r\n`);
+    if (started.proRequired) openActivateModal();
+    return;
+  }
+  termStarted = true;
+  termLastCwd = started.cwd || "";
+
+  termCleanups.push(
+    window.compiler.onTerminalData((text) => term?.write(text)),
+    window.compiler.onTerminalCwd((cwd) => {
+      termLastCwd = cwd;
+    }),
+    window.compiler.onTerminalDone(() => termPrompt()),
+    window.compiler.onTerminalExit(() => {
+      termStarted = false;
+      term?.write("\r\n\x1b[33m[shell exited]\x1b[0m\r\n");
+    }),
+  );
+
+  term.onData(onTerminalKey);
+  term.write("\x1b[90mNode sandbox shell — npm install, node, git\x1b[0m\r\n");
+  termPrompt();
+  term.focus();
+
+  if (!termResizeBound) {
+    termResizeBound = true;
+    window.addEventListener("resize", () => fitAddon?.fit());
+  }
+}
+
+function onTerminalKey(data) {
+  if (!term || !termStarted) return;
+  for (const ch of data) {
+    if (ch === "\r") {
+      term.write("\r\n");
+      const cmd = termInputBuffer;
+      termInputBuffer = "";
+      if (!cmd.trim()) {
+        termPrompt();
+        continue;
+      }
+      if (cmd.trim() === "clear" || cmd.trim() === "cls") {
+        term.clear();
+        termPrompt();
+        continue;
+      }
+      window.compiler.sendTerminalInput(cmd).then((res) => {
+        if (res && res.ok === false) term.write(`\x1b[31m${res.error}\x1b[0m\r\n`);
+      });
+    } else if (ch === "\x7f" || ch === "\b") {
+      if (termInputBuffer.length) {
+        termInputBuffer = termInputBuffer.slice(0, -1);
+        term.write("\b \b");
+      }
+    } else if (ch === "\x03") {
+      termInputBuffer = "";
+      term.write("^C");
+      termPrompt();
+    } else if (ch >= " ") {
+      termInputBuffer += ch;
+      term.write(ch);
+    }
+  }
 }
 
 // ── Events ────────────────────────────────────────────────
@@ -1336,8 +1960,22 @@ function bindEvents() {
   document.getElementById("btn-whats-new-load")?.addEventListener("click", () => loadWhatsNewNotes());
   document.getElementById("btn-whats-new-latest")?.addEventListener("click", () => loadWhatsNewNotes("home"));
   document.getElementById("btn-clear").addEventListener("click", resetEditor);
-  document.getElementById("btn-clear-console").addEventListener("click", () => { document.getElementById("console").innerHTML = ""; });
-  document.getElementById("btn-new").addEventListener("click", () => { resetEditor(); renderFileTree(); });
+  document.getElementById("btn-clear-console").addEventListener("click", () => {
+    if (!document.getElementById("terminal-panel").classList.contains("hidden")) {
+      term?.clear();
+      return;
+    }
+    document.getElementById("console").innerHTML = "";
+  });
+  document.getElementById("btn-new").addEventListener("click", () => resetEditor());
+  document.getElementById("btn-new-tab").addEventListener("click", () => createTab({}));
+  document.getElementById("btn-panel-console").addEventListener("click", () => showPanel("console"));
+  document.getElementById("btn-panel-terminal").addEventListener("click", () => showPanel("terminal"));
+  fileNameInput().addEventListener("input", () => {
+    isDirty = true;
+    renderTabBar();
+    persistSession();
+  });
   document.getElementById("btn-new-folder").addEventListener("click", () => promptNewFolder(null));
   document.getElementById("btn-activate").addEventListener("click", openActivateModal);
   document.getElementById("btn-cancel-activate").addEventListener("click", closeActivateModal);
@@ -1399,9 +2037,11 @@ function bindEvents() {
     if (mod && e.key === "e") { e.preventDefault(); exportCurrentFile(); }
     if (mod && e.key === "h") { e.preventDefault(); openHistoryModal(); }
     if (mod && e.key === "t") { e.preventDefault(); renderTemplates(); openModal("modal-templates"); }
-    if (mod && e.key === "n") { e.preventDefault(); resetEditor(); renderFileTree(); }
+    if (mod && e.key === "n") { e.preventDefault(); createTab({}); }
+    if (mod && e.key === "w") { e.preventDefault(); if (activeTabUid) closeTab(activeTabUid); }
     if (mod && e.key === ",") { e.preventDefault(); openSettings(); }
     if (mod && e.key === "/") { e.preventDefault(); openModal("modal-shortcuts"); }
+    if (mod && e.key === "`") { e.preventDefault(); showPanel(document.getElementById("terminal-panel").classList.contains("hidden") ? "terminal" : "console"); }
     if (e.key === "Escape") closeAllModals();
   });
 }

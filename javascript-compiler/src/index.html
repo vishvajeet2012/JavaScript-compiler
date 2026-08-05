@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src https://cdn.jsdelivr.net; img-src 'self' data:;" />
   <title>JS Compiler</title>
   <link rel="icon" href="assets/icon.png" type="image/png" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -100,14 +101,25 @@
         <div id="npm-packages" class="npm-packages" title="Installed packages"></div>
       </div>
 
+      <div class="tab-bar-row">
+        <div id="tab-bar" class="tab-bar"></div>
+        <button type="button" id="btn-new-tab" class="btn-icon tab-new-btn" title="New tab (Ctrl+N)">+</button>
+      </div>
+
       <div id="editor" class="editor"></div>
 
       <div class="console-panel">
         <div class="console-header">
-          <span>Console</span>
+          <div class="console-tabs">
+            <button type="button" id="btn-panel-console" class="console-tab-btn active">Console</button>
+            <button type="button" id="btn-panel-terminal" class="console-tab-btn">Terminal <span class="badge-pro-sm">Pro</span></button>
+          </div>
           <button id="btn-clear-console" class="btn-ghost-sm">Clear</button>
         </div>
         <div id="console" class="console-output"></div>
+        <div id="terminal-panel" class="terminal-panel hidden">
+          <div id="terminal-container" class="terminal-container"></div>
+        </div>
       </div>
     </main>
   </div>
@@ -269,7 +281,9 @@
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>E</kbd><span>Export file (Pro)</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>H</kbd><span>Version history (Pro)</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>T</kbd><span>Open templates</span></div>
-        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>N</kbd><span>New file</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>N</kbd><span>New tab</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>W</kbd><span>Close tab</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>`</kbd><span>Toggle terminal (Pro)</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>,</kbd><span>Settings</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>/</kbd><span>Shortcuts help</span></div>
         <div class="shortcut-row"><kbd>Esc</kbd><span>Close modal</span></div>
@@ -292,6 +306,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

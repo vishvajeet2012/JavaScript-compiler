@@ -69,6 +69,7 @@ function wrapNodePrelude() {
     const __filename = '/snippet/index.js';
     const module = { exports: {} };
     const exports = module.exports;
+    const __realUtilInspect = require('util').inspect;
     const require = (id) => {
       if (id === 'path') {
         return {
@@ -82,7 +83,10 @@ function wrapNodePrelude() {
         return { platform: () => process.platform, homedir: () => '/home/user', tmpdir: () => '/tmp' };
       }
       if (id === 'util') {
-        return { inspect: (v) => JSON.stringify(v, null, 2), format: (...a) => a.map(String).join(' ') };
+        return {
+          inspect: (v) => { try { return __realUtilInspect(v, { depth: 4 }); } catch { return JSON.stringify(v, null, 2); } },
+          format: (...a) => a.map(String).join(' '),
+        };
       }
       throw new Error('require(\"' + id + '\") is not available in the sandbox. Allowed: path, os, util');
     };
@@ -98,7 +102,13 @@ function wrapNodePrelude() {
 
 /**
  * Prepare user code for the worker based on language.
- * @returns {{ code: string, language: string, note?: string }}
+ *
+ * `lineOffset` is how many lines were prepended, and `lineMappable` says
+ * whether reported runtime lines still correspond 1:1 to the user's source.
+ * Transforms that add or drop lines (TypeScript stripping, HTML extraction)
+ * clear the flag so the console hides misleading line numbers.
+ *
+ * @returns {{ code: string, language: string, note?: string, lineOffset: number, lineMappable: boolean }}
  */
 function prepareCode(raw, language = "javascript") {
   const lang = String(language || "javascript").toLowerCase();
@@ -109,6 +119,8 @@ function prepareCode(raw, language = "javascript") {
       code: stripTypeScript(source),
       language: "typescript",
       note: "TypeScript types stripped for runtime",
+      lineOffset: 0,
+      lineMappable: false,
     };
   }
 
@@ -121,26 +133,33 @@ function prepareCode(raw, language = "javascript") {
           code: `console.log("HTML snippet loaded. Add <script>…</script> tags to run JavaScript.");\nconsole.log("Markup length:", ${source.length});`,
           language: "html",
           note: "No inline <script> found — logged markup info only",
+          lineOffset: 0,
+          lineMappable: false,
         };
       }
-      return { code: source, language: "html" };
+      return { code: source, language: "html", lineOffset: 0, lineMappable: true };
     }
     return {
       code: scripts,
       language: "html",
       note: "Running JavaScript from <script> tags",
+      lineOffset: 0,
+      lineMappable: false,
     };
   }
 
   if (lang === "node" || lang === "nodejs") {
+    const prelude = wrapNodePrelude();
     return {
-      code: `${wrapNodePrelude()}\n${source}`,
+      code: `${prelude}\n${source}`,
       language: "node",
       note: "Node-style sandbox (process, require path/os/util)",
+      lineOffset: prelude.split("\n").length,
+      lineMappable: true,
     };
   }
 
-  return { code: source, language: "javascript" };
+  return { code: source, language: "javascript", lineOffset: 0, lineMappable: true };
 }
 
 function defaultExtension(language) {

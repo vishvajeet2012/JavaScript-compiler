@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld("compiler", {
   saveSettings: (s) => ipcRenderer.invoke("save-settings", s),
   saveDraft: (data) => ipcRenderer.invoke("save-draft", data),
   getDraft: () => ipcRenderer.invoke("get-draft"),
+  saveSession: (session) => ipcRenderer.invoke("save-session", session),
+  getSession: () => ipcRenderer.invoke("get-session"),
   clearDraft: () => ipcRenderer.invoke("clear-draft"),
   exportFile: (data) => ipcRenderer.invoke("export-file", data),
   getVersions: (snippetId) => ipcRenderer.invoke("get-versions", snippetId),
@@ -49,4 +51,28 @@ contextBridge.exposeInMainWorld("compiler", {
   npmList: () => ipcRenderer.invoke("npm-list"),
   npmInstall: (spec) => ipcRenderer.invoke("npm-install", spec),
   npmRemove: (spec) => ipcRenderer.invoke("npm-remove", spec),
+  // Integrated terminal (Pro)
+  startTerminal: () => ipcRenderer.invoke("terminal-start"),
+  sendTerminalInput: (line) => ipcRenderer.invoke("terminal-input", line),
+  killTerminal: () => ipcRenderer.invoke("terminal-kill"),
+  onTerminalData: (callback) => {
+    const handler = (_event, text) => callback(text);
+    ipcRenderer.on("terminal-data", handler);
+    return () => ipcRenderer.removeListener("terminal-data", handler);
+  },
+  onTerminalCwd: (callback) => {
+    const handler = (_event, cwd) => callback(cwd);
+    ipcRenderer.on("terminal-cwd", handler);
+    return () => ipcRenderer.removeListener("terminal-cwd", handler);
+  },
+  onTerminalDone: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("terminal-done", handler);
+    return () => ipcRenderer.removeListener("terminal-done", handler);
+  },
+  onTerminalExit: (callback) => {
+    const handler = (_event, code) => callback(code);
+    ipcRenderer.on("terminal-exit", handler);
+    return () => ipcRenderer.removeListener("terminal-exit", handler);
+  },
 });

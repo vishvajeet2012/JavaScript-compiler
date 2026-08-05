@@ -345,6 +345,25 @@ function getDraft() {
   };
 }
 
+/**
+ * Whole-editor session: every open tab including never-saved ones, so work in
+ * an untitled tab survives a restart or an accidental close.
+ */
+function saveSession(json) {
+  setSetting("session_tabs", typeof json === "string" ? json : JSON.stringify(json || []));
+}
+
+function getSession() {
+  const raw = getSetting("session_tabs", "");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.tabs) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function clearDraft() {
   ["draft_title", "draft_code", "draft_folder_id", "draft_language", "draft_saved_at"].forEach(
     (k) => {
@@ -379,5 +398,7 @@ module.exports = {
   saveDraft,
   getDraft,
   clearDraft,
+  saveSession,
+  getSession,
   MAX_VERSIONS_PER_SNIPPET,
 };
