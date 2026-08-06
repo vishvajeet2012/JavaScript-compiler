@@ -5,10 +5,44 @@
 
 export const CHANGELOG_FALLBACK = [
   {
+    version: '1.1.0',
+    title: 'JS Compiler v1.1.0',
+    publishedAt: '2026-08-05',
+    isHome: true,
+    notes: 'Multi-tab editing, session restore, integrated terminal, rich console output & autocomplete.',
+    added: [
+      'Multi-tab editing with undo history & cursor persistence',
+      'Session restore across restarts and accidental closes',
+      'Integrated terminal (Pro) for npm, node & git',
+      'Rich console output with expandable trees & line numbers',
+      'Full console API (table, group, time, count, trace, dir)',
+      'Console filters (Logs, Warn, Errors) & text search',
+      'Open local files & drag-and-drop support',
+      'Live run auto-execution mode',
+      'IntelliSense autocomplete for installed npm packages (Pro)',
+    ],
+    fixed: [
+      'Readable console formatting for objects & arrays',
+      'Streaming console output during infinite loop timeouts',
+      'Node stdout buffer output isolation',
+      'Clean stack traces with original source line numbers',
+    ],
+    changed: [
+      'Redesigned Console panel with severity highlighting',
+      'New tab workflow for file open & creation',
+    ],
+    removed: [],
+    changelog: [
+      'Multi-tab editor & session restore',
+      'Integrated terminal & rich console tree',
+      'npm package autocomplete & live run mode',
+    ],
+  },
+  {
     version: '1.0.4',
     title: 'JS Compiler v1.0.4',
     publishedAt: '2026-07-15',
-    isHome: true,
+    isHome: false,
     notes: 'Node npm install sandbox, public changelog & Free vs Pro table.',
     added: [
       'Node mode npm install bar (Pro) — packages in local sandbox',
