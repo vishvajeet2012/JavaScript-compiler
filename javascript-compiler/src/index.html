@@ -72,6 +72,10 @@
           <option value="node">Node (Pro)</option>
         </select>
         <div class="toolbar-actions">
+          <button id="btn-open-file" class="btn-secondary" title="Open a file from your computer (Ctrl+O)">Open</button>
+          <button id="btn-live" class="btn-secondary btn-live" title="Live run">
+            <span class="live-dot"></span>Live
+          </button>
           <button id="btn-templates" class="btn-secondary" title="Code templates (Ctrl+T)">Templates</button>
           <button id="btn-history" class="btn-secondary" title="Version history (Pro)">History</button>
           <button id="btn-export" class="btn-secondary" title="Export file — Pro (Ctrl+E)">Export</button>
@@ -113,6 +117,30 @@
           <div class="console-tabs">
             <button type="button" id="btn-panel-console" class="console-tab-btn active">Console</button>
             <button type="button" id="btn-panel-terminal" class="console-tab-btn">Terminal <span class="badge-pro-sm">Pro</span></button>
+          </div>
+          <div id="console-tools" class="console-tools">
+            <div class="console-filters" id="console-filters">
+              <button type="button" class="console-filter active" data-filter="all">All</button>
+              <button type="button" class="console-filter" data-filter="log">Logs</button>
+              <button type="button" class="console-filter" data-filter="warn">
+                Warn <span id="console-warn-count" class="filter-count"></span>
+              </button>
+              <button type="button" class="console-filter" data-filter="error">
+                Errors <span id="console-error-count" class="filter-count"></span>
+              </button>
+            </div>
+            <input
+              type="search"
+              id="console-search"
+              class="console-search"
+              placeholder="Filter output…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <label class="console-preserve" title="Keep output from previous runs">
+              <input type="checkbox" id="console-preserve" />
+              <span>Preserve</span>
+            </label>
           </div>
           <button id="btn-clear-console" class="btn-ghost-sm">Clear</button>
         </div>
@@ -283,6 +311,8 @@
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>T</kbd><span>Open templates</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>N</kbd><span>New tab</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>W</kbd><span>Close tab</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>O</kbd><span>Open file from disk</span></div>
+        <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd><span>Toggle live run</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>`</kbd><span>Toggle terminal (Pro)</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>,</kbd><span>Settings</span></div>
         <div class="shortcut-row"><kbd>Ctrl</kbd>+<kbd>/</kbd><span>Shortcuts help</span></div>

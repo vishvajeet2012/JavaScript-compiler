@@ -12,7 +12,12 @@ _Released 05-08-2026_
 - **Source line numbers** in the output gutter, so each log points at the line that produced it
 - Error output shows a clean, expandable stack trace with real source lines
 - Run timing — each run reports how long it took
-- New shortcuts: `Ctrl+N` new tab, `Ctrl+W` close tab, `Ctrl` + `` ` `` toggle terminal
+- **Full console API** — `console.table` (real grid), `group` / `groupEnd` (indented), `time` / `timeEnd` / `timeLog`, `count` / `countReset`, `assert`, `dir` and `trace`
+- **Console filters** — All / Logs / Warn / Errors with live counts, a text filter box, and a Preserve toggle that keeps output across runs
+- **Open files from your computer** — `Ctrl+O` or the Open button, plus drag and drop straight onto the editor. Saving an opened file writes back to disk
+- **Live run** — turn it on and the code runs by itself a moment after you stop typing (`Ctrl+Shift+L`)
+- **Autocomplete for installed npm packages** (Pro) — type definitions from the sandbox are loaded into the editor, so `require('lodash')` gets real IntelliSense
+- New shortcuts: `Ctrl+N` new tab, `Ctrl+W` close tab, `Ctrl+O` open file, `Ctrl+Shift+L` live run, `Ctrl` + `` ` `` toggle terminal
 
 ## Fixed
 - `console.log` of objects and arrays printed `[object Object]` / unusable text instead of readable structure
@@ -26,6 +31,7 @@ _Released 05-08-2026_
 - Console panel redesigned: per-entry rows, severity colours, error/warning highlighting, auto-scroll
 - Clear button clears whichever panel is in front (console or terminal)
 - "New file" opens a tab instead of replacing what you were working on
+- Saving a tab that came from a file on disk writes to that file instead of creating a snippet (Pro; Free saves it as a snippet instead)
 
 ## Removed
 - Nothing

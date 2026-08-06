@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("compiler", {
   runCode: (codeOrPayload, language) => {
@@ -51,6 +51,19 @@ contextBridge.exposeInMainWorld("compiler", {
   npmList: () => ipcRenderer.invoke("npm-list"),
   npmInstall: (spec) => ipcRenderer.invoke("npm-install", spec),
   npmRemove: (spec) => ipcRenderer.invoke("npm-remove", spec),
+  npmTypes: () => ipcRenderer.invoke("npm-types"),
+  // Files on disk
+  openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
+  readFile: (filePath) => ipcRenderer.invoke("read-file", filePath),
+  writeFile: (filePath, content) => ipcRenderer.invoke("write-file", { filePath, content }),
+  // Electron 32+ removed File.path; this is the supported replacement
+  pathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return null;
+    }
+  },
   // Integrated terminal (Pro)
   startTerminal: () => ipcRenderer.invoke("terminal-start"),
   sendTerminalInput: (line) => ipcRenderer.invoke("terminal-input", line),

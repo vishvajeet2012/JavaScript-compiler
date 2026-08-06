@@ -75,37 +75,20 @@ function killActiveWorker() {
 const INSPECT_SOURCE = fs
   .readFileSync(path.join(__dirname, "inspect.js"), "utf8")
   .replace(/module\.exports[\s\S]*$/, "");
+const CONSOLE_SOURCE = fs.readFileSync(path.join(__dirname, "console-capture.js"), "utf8");
 
 function buildWorkerSource() {
   return `
 ${INSPECT_SOURCE}
+${CONSOLE_SOURCE}
 
 const { parentPort } = require('worker_threads');
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
 parentPort.on('message', ({ code, timeoutMs, lineOffset, lineMappable }) => {
   const emit = (entry) => { try { parentPort.postMessage({ t: 'log', entry }); } catch {} };
-  const original = {
-    log: console.log, error: console.error, warn: console.warn,
-    info: console.info, debug: console.debug,
-  };
   let stackOffset = null;
-
-  const capture = (type) => (...args) => {
-    let line = null;
-    if (lineMappable && stackOffset !== null) {
-      line = userLineFromStack(new Error().stack, stackOffset, lineOffset);
-    }
-    emit({ type, line, parts: serializeArgs(args) });
-  };
-
-  const restore = () => {
-    console.log = original.log;
-    console.error = original.error;
-    console.warn = original.warn;
-    console.info = original.info;
-    console.debug = original.debug;
-  };
+  let restore = () => {};
 
   const run = async () => {
     let compiled = null;
@@ -126,11 +109,13 @@ parentPort.on('message', ({ code, timeoutMs, lineOffset, lineMappable }) => {
       return;
     }
 
-    console.log = capture('log');
-    console.error = capture('error');
-    console.warn = capture('warn');
-    console.info = capture('info');
-    console.debug = capture('log');
+    restore = installConsoleCapture({
+      emit,
+      getLine: () =>
+        lineMappable && stackOffset !== null
+          ? userLineFromStack(new Error().stack, stackOffset, lineOffset)
+          : null,
+    });
 
     try {
       let result = compiled();
@@ -324,6 +309,16 @@ ipcMain.handle("run-code", async (_, payload) => {
 // ── npm packages (Node mode, Pro) ─────────────────────────
 
 ipcMain.handle("npm-list", () => packages.listPackages());
+
+// Type definitions of installed packages, for editor autocomplete
+ipcMain.handle("npm-types", () => {
+  if (!activation.isProActive()) return { ok: true, files: [], packages: [] };
+  try {
+    return packages.listTypeDefinitions();
+  } catch (e) {
+    return { ok: false, error: e.message, files: [], packages: [] };
+  }
+});
 
 ipcMain.handle("npm-install", async (_, spec) => {
   const res = await packages.installPackage(spec);
@@ -519,6 +514,83 @@ ipcMain.handle("get-session", () => db.getSession());
 ipcMain.handle("clear-draft", () => {
   db.clearDraft();
   return { ok: true };
+});
+
+// ── Open files from disk ────────────────────────────────
+
+const OPENABLE_EXTENSIONS = [
+  ".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx",
+  ".html", ".htm", ".json", ".txt", ".md",
+];
+const MAX_OPEN_BYTES = 5 * 1024 * 1024;
+
+function languageForPath(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".ts" || ext === ".tsx") return "typescript";
+  if (ext === ".html" || ext === ".htm") return "html";
+  return "javascript";
+}
+
+function readSourceFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (!OPENABLE_EXTENSIONS.includes(ext)) {
+    return { error: `Cannot open ${ext || "this file type"}. Supported: ${OPENABLE_EXTENSIONS.join(", ")}` };
+  }
+  let stat;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    return { error: "File not found." };
+  }
+  if (!stat.isFile()) return { error: "That is not a file." };
+  if (stat.size > MAX_OPEN_BYTES) {
+    return { error: `File is too large (${Math.round(stat.size / 1024 / 1024)}MB). Limit is 5MB.` };
+  }
+  try {
+    return {
+      ok: true,
+      path: filePath,
+      name: path.basename(filePath),
+      code: fs.readFileSync(filePath, "utf8"),
+      language: languageForPath(filePath),
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+ipcMain.handle("open-file-dialog", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "Open file",
+    properties: ["openFile", "multiSelections"],
+    filters: [
+      { name: "Code", extensions: ["js", "mjs", "cjs", "jsx", "ts", "tsx", "html", "htm", "json"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+  });
+  if (result.canceled || !result.filePaths?.length) return { canceled: true };
+  const files = result.filePaths.map(readSourceFile);
+  telemetry.trackEvent("open_file", { count: files.filter((f) => f.ok).length });
+  return { ok: true, files };
+});
+
+ipcMain.handle("read-file", (_, filePath) => readSourceFile(String(filePath || "")));
+
+// Writing back to disk uses the same gate as Export
+ipcMain.handle("write-file", (_, { filePath, content }) => {
+  const gate = activation.canExport();
+  if (!gate.allowed) return { error: gate.message, proRequired: true };
+  const ext = path.extname(String(filePath || "")).toLowerCase();
+  if (!OPENABLE_EXTENSIONS.includes(ext)) {
+    return { error: "Refusing to write this file type." };
+  }
+  try {
+    fs.writeFileSync(filePath, String(content ?? ""), "utf8");
+    telemetry.trackEvent("save_file_to_disk", {});
+    return { ok: true, path: filePath };
+  } catch (e) {
+    return { error: e.message };
+  }
 });
 
 // ── Export (Pro only) ───────────────────────────────────

@@ -12,6 +12,9 @@ let settings = {};
 let folders = [];
 let snippets = [];
 let templateFilter = "all";
+let preserveLog = false;
+let liveRun = false;
+let liveRunTimer = null;
 const openFolders = new Set();
 
 // ── Multi-tab editing ───────────────────────────────────────
@@ -161,6 +164,7 @@ require(["vs/editor/editor.main"], () => {
       renderTabBar();
     }
     persistSession();
+    scheduleLiveRun();
   });
 
   // Last-chance flush so nothing typed is lost on quit
@@ -190,7 +194,14 @@ function syncActiveTab() {
   tab.viewState = editor.saveViewState();
 }
 
-function createTab({ snippetId = null, folderId = null, language = "javascript", title, code = DEFAULT_CODE } = {}) {
+function createTab({
+  snippetId = null,
+  folderId = null,
+  language = "javascript",
+  title,
+  code = DEFAULT_CODE,
+  filePath = null,
+} = {}) {
   const lang = !isPro && isProLanguage(language) ? "javascript" : language;
   const uid = ++tabUidCounter;
   const model = monaco.editor.createModel(code, MONACO_LANG[lang] || "javascript");
@@ -198,6 +209,7 @@ function createTab({ snippetId = null, folderId = null, language = "javascript",
     uid,
     snippetId,
     folderId,
+    filePath,
     language: lang,
     title: title || defaultFileName(lang),
     model,
@@ -282,6 +294,7 @@ function persistSession({ immediate = false } = {}) {
         uid: tab.uid,
         snippetId: tab.snippetId,
         folderId: tab.folderId,
+        filePath: tab.filePath || null,
         language: tab.language,
         title: tab.title,
         dirty: tab.dirty,
@@ -307,6 +320,7 @@ async function restoreSession() {
     createTab({
       snippetId: saved.snippetId ?? null,
       folderId: saved.folderId ?? null,
+      filePath: saved.filePath ?? null,
       language: saved.language || "javascript",
       title: saved.title,
       code: typeof saved.code === "string" ? saved.code : "",
@@ -359,6 +373,10 @@ function renderTabBar() {
 async function init() {
   settings = await window.compiler.getSettings();
   applyTheme(settings.editor_theme || "vs-dark");
+  preserveLog = settings.preserve_log === "true";
+  liveRun = settings.live_run === "true";
+  document.getElementById("console-preserve").checked = preserveLog;
+  updateLiveRunUI();
   await refreshProStatus();
   await refreshWorkspace();
   const restored = await restoreSession();
@@ -374,6 +392,179 @@ async function init() {
   document.getElementById("machine-id").textContent =
     (await window.compiler.getMachineId()).slice(0, 16) + "...";
   setLanguageUI(activeLanguage);
+  refreshTypeDefinitions();
+}
+
+// ── Files on disk ─────────────────────────────────────────
+//
+// Opened files become file-backed tabs: Save writes straight back to the file
+// on disk (same Pro gate as Export) instead of creating a snippet.
+
+function openFileInTab(file) {
+  const existing = tabs.find((t) => t.filePath && t.filePath === file.path);
+  if (existing) {
+    activateTab(existing.uid);
+    showToast(`${file.name} is already open`, "success");
+    return;
+  }
+  createTab({
+    language: file.language,
+    title: file.name,
+    code: file.code,
+  });
+  const tab = activeTab();
+  if (tab) {
+    tab.filePath = file.path;
+    tab.dirty = false;
+  }
+  isDirty = false;
+  renderTabBar();
+  persistSession();
+  showToast(`Opened ${file.name}`, "success");
+}
+
+async function openFileFromDisk() {
+  const result = await window.compiler.openFileDialog();
+  if (result?.canceled) return;
+  if (!result?.ok) {
+    showToast(result?.error || "Could not open file", "error");
+    return;
+  }
+  result.files.forEach((file) => {
+    if (file.ok) openFileInTab(file);
+    else showToast(file.error || "Could not open file", "error");
+  });
+}
+
+async function openDroppedFiles(fileList) {
+  const items = Array.from(fileList || []);
+  if (!items.length) return;
+  for (const item of items) {
+    const filePath = window.compiler.pathForFile(item);
+    if (!filePath) {
+      showToast("Could not read that dropped file", "error");
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const file = await window.compiler.readFile(filePath);
+    if (file?.ok) openFileInTab(file);
+    else showToast(file?.error || "Could not open file", "error");
+  }
+}
+
+/** Writes a file-backed tab straight back to disk. */
+async function saveToDisk(tab) {
+  const result = await window.compiler.writeFile(tab.filePath, editor.getValue());
+  if (result?.ok) {
+    tab.dirty = false;
+    isDirty = false;
+    renderTabBar();
+    persistSession({ immediate: true });
+    setAutoSaveStatus("saved");
+    showToast(`Saved ${tab.title}`, "success");
+    return true;
+  }
+  if (result?.proRequired) {
+    showToast("Saving to disk is a Pro feature — saving as a snippet instead.", "error");
+    return false;
+  }
+  showToast(result?.error || "Could not save file", "error");
+  return true;
+}
+
+// ── npm IntelliSense ──────────────────────────────────────
+//
+// The .d.ts files of installed packages are handed to Monaco under their real
+// node_modules paths, so `require('lodash')` resolves and autocompletes.
+
+let typeLibDisposables = [];
+
+async function refreshTypeDefinitions() {
+  if (!editor || typeof monaco === "undefined") return;
+  const defaults = monaco?.languages?.typescript?.javascriptDefaults;
+  if (!defaults) return;
+
+  let payload = null;
+  try {
+    payload = await window.compiler.npmTypes();
+  } catch {
+    return;
+  }
+  if (!payload?.files) return;
+
+  typeLibDisposables.forEach((d) => {
+    try {
+      d.dispose();
+    } catch {
+      /* already gone */
+    }
+  });
+  typeLibDisposables = [];
+
+  const options = {
+    ...defaults.getCompilerOptions(),
+    allowJs: true,
+    checkJs: false,
+    allowNonTsExtensions: true,
+    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    target: monaco.languages.typescript.ScriptTarget.ESNext,
+    module: monaco.languages.typescript.ModuleKind.CommonJS,
+  };
+  defaults.setCompilerOptions(options);
+  monaco.languages.typescript.typescriptDefaults.setCompilerOptions(options);
+
+  payload.files.forEach((file) => {
+    const uri = `file:///node_modules/${file.path}`;
+    try {
+      typeLibDisposables.push(defaults.addExtraLib(file.content, uri));
+      typeLibDisposables.push(
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(file.content, uri),
+      );
+    } catch {
+      /* duplicate uri — ignore */
+    }
+  });
+
+  if (payload.packages?.length) {
+    const names = payload.packages.map((p) => p.name).join(", ");
+    console.info(`Autocomplete loaded for: ${names}`);
+  }
+}
+
+// ── Live run ──────────────────────────────────────────────
+//
+// Re-runs the buffer a moment after typing stops, so the output pane tracks
+// the code without pressing Run. Auto runs never steal focus or open modals.
+
+const LIVE_RUN_DEBOUNCE_MS = 900;
+
+function updateLiveRunUI() {
+  const btn = document.getElementById("btn-live");
+  if (!btn) return;
+  btn.classList.toggle("btn-live-on", liveRun);
+  btn.title = liveRun
+    ? "Live run is on — code runs automatically after you stop typing"
+    : "Live run is off — press Run or Ctrl+Enter";
+}
+
+function toggleLiveRun() {
+  liveRun = !liveRun;
+  updateLiveRunUI();
+  window.compiler.saveSettings({ live_run: String(liveRun) });
+  showToast(liveRun ? "Live run on — runs as you type" : "Live run off", "success");
+  if (liveRun) scheduleLiveRun();
+}
+
+function scheduleLiveRun() {
+  if (!liveRun) return;
+  if (liveRunTimer) clearTimeout(liveRunTimer);
+  liveRunTimer = setTimeout(() => {
+    liveRunTimer = null;
+    if (!editor || isRunning) return;
+    if (!editor.getValue().trim()) return;
+    if (!isPro && isProLanguage(currentLanguage())) return;
+    runCode({ auto: true });
+  }, LIVE_RUN_DEBOUNCE_MS);
 }
 
 const PRO_ONLY_LANGUAGES = new Set(["typescript", "html", "node"]);
@@ -457,6 +648,7 @@ async function refreshNpmPackages() {
         if (r.ok) showToast(`Removed ${name}`, "success");
         else showToast(r.error || "Uninstall failed", "error");
         refreshNpmPackages();
+        refreshTypeDefinitions();
       });
       listEl.appendChild(chip);
     });
@@ -497,6 +689,7 @@ async function installNpmPackage() {
       if (input) input.value = "";
       if (status) status.textContent = res.message || "Installed";
       refreshNpmPackages();
+      refreshTypeDefinitions();
     } else {
       showToast(res.error || "npm install failed", "error");
       if (status) status.textContent = res.error || "Failed";
@@ -1367,8 +1560,9 @@ function setRunState(running) {
   }
 }
 
-async function runCode() {
+async function runCode({ auto = false } = {}) {
   if (isRunning) {
+    if (auto) return;
     const result = await window.compiler.stopCode();
     setRunState(false);
     appendLogs(result.logs);
@@ -1377,6 +1571,7 @@ async function runCode() {
 
   const lang = currentLanguage();
   if (!isPro && isProLanguage(lang)) {
+    if (auto) return;
     showToast(
       "TypeScript / HTML+JS / Node are Pro only. Activate Pro to run.",
       "error",
@@ -1385,9 +1580,9 @@ async function runCode() {
     return;
   }
 
-  showPanel("console");
-  document.getElementById("console").innerHTML =
-    '<div class="out-row meta"><div class="out-content"><span class="jv-text">Running…</span></div><span class="out-gutter"></span></div>';
+  if (!auto) showPanel("console");
+  if (!preserveLog) clearConsole();
+  appendLogs([{ type: "meta", text: auto ? "Live run…" : "Running…" }]);
   setRunState(true);
   const startedAt = performance.now();
   const result = await window.compiler.runCode({
@@ -1396,15 +1591,22 @@ async function runCode() {
   });
   setRunState(false);
   const elapsed = Math.round(performance.now() - startedAt);
-  document.getElementById("console").innerHTML = "";
-  appendLogs(result.logs || []);
-  appendLogs([{ type: "meta", text: `— finished in ${elapsed}ms` }]);
+  // Drop the "Running…" placeholder now that the real output is here.
+  consoleEntries = consoleEntries.filter(
+    (e) => !(e.type === "meta" && /^(Running|Live run)…$/.test(e.text || "")),
+  );
+  consoleEntries.push(...(result.logs || []));
+  consoleEntries.push({ type: "meta", text: `— finished in ${elapsed}ms` });
+  renderConsole();
+
   if (result.proRequired || result.blocked) {
     showToast(logToText(result.logs?.[0]) || "Pro required", "error");
-    openActivateModal();
+    if (!auto) openActivateModal();
     return;
   }
-  if (result.stopped) showToast("Infinite loop stopped — app is safe!", "error");
+  if (result.stopped && !auto) {
+    showToast("Infinite loop stopped — app is safe!", "error");
+  }
 }
 
 // ── Rich console rendering ────────────────────────────────
@@ -1637,33 +1839,137 @@ function renderValue(node, depth = 0, forceCollapsed = false) {
 function logToText(entry) {
   if (!entry) return "";
   if (typeof entry.text === "string") return entry.text;
-  return (entry.parts || [])
-    .map((p) => {
-      if (p.k === "text" || p.k === "string") return p.v;
-      if (p.k === "error") return p.v;
-      if (p.v !== undefined) return String(p.v);
-      return p.k;
-    })
-    .join(" ");
+  return (entry.parts || []).map(partToText).join(" ");
+}
+
+/** Flattens one serialized value far enough for search and toasts. */
+function partToText(p) {
+  if (!p) return "";
+  if (p.k === "text" || p.k === "string" || p.k === "error") return p.v;
+  if (p.k === "table") {
+    const head = p.columns.join(" ");
+    const body = p.rows
+      .map((r) => `${r.index} ${p.columns.map((c) => partToText(r.cells[c])).join(" ")}`)
+      .join(" ");
+    return `${head} ${body}`;
+  }
+  if (p.k === "array") return (p.items || []).map(partToText).join(" ");
+  if (p.k === "object") return (p.entries || []).map(([k, v]) => `${k} ${partToText(v)}`).join(" ");
+  if (p.k === "set") return (p.items || []).map(partToText).join(" ");
+  if (p.k === "map") {
+    return (p.entries || []).map(([k, v]) => `${partToText(k)} ${partToText(v)}`).join(" ");
+  }
+  if (p.v !== undefined) return String(p.v);
+  return p.k || "";
+}
+
+/** console.table grid. */
+function renderTable(node) {
+  const wrap = el("div", "jv-table-wrap");
+  const table = el("table", "jv-table");
+  const thead = el("thead");
+  const headRow = el("tr");
+  headRow.appendChild(el("th", "jv-th-index", "(index)"));
+  node.columns.forEach((c) => headRow.appendChild(el("th", null, c)));
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  node.rows.forEach((r) => {
+    const tr = el("tr");
+    tr.appendChild(el("td", "jv-td-index", r.index));
+    node.columns.forEach((c) => {
+      const td = el("td");
+      if (r.cells[c] !== undefined) td.appendChild(renderInline(r.cells[c], 1));
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  if (node.truncated) wrap.appendChild(el("div", "jv-muted", "… more rows not shown"));
+  return wrap;
+}
+
+// ── Console entries, filtering and search ─────────────────
+
+let consoleEntries = [];
+let consoleFilter = "all";
+let consoleSearch = "";
+
+const FILTER_GROUPS = {
+  all: null,
+  log: ["log", "info", "result", "timing", "group", "meta"],
+  warn: ["warn"],
+  error: ["error"],
+};
+
+function entryMatches(entry) {
+  const group = FILTER_GROUPS[consoleFilter];
+  if (group && !group.includes(entry.type || "log")) return false;
+  if (!consoleSearch) return true;
+  return logToText(entry).toLowerCase().includes(consoleSearch);
+}
+
+function buildLogRow(entry) {
+  const row = el("div", `out-row ${entry.type || "log"}`);
+  const content = el("div", "out-content");
+  if (entry.depth) content.style.paddingLeft = `${entry.depth * 1.1}rem`;
+
+  // Legacy plain-text entries stay supported.
+  const parts = entry.parts || [{ k: "text", v: entry.text || "" }];
+  parts.forEach((part, i) => {
+    if (i > 0) content.appendChild(el("span", "jv-punct", " "));
+    content.appendChild(part.k === "table" ? renderTable(part) : renderValue(part, 0));
+  });
+
+  if (entry.stack) {
+    const trace = el("pre", "jv-stack", entry.stack);
+    content.appendChild(trace);
+  }
+
+  row.appendChild(content);
+  row.appendChild(el("span", "out-gutter", entry.line ? `L${entry.line}` : ""));
+  return row;
+}
+
+function renderConsole() {
+  const consoleEl = document.getElementById("console");
+  consoleEl.innerHTML = "";
+  const visible = consoleEntries.filter(entryMatches);
+  visible.forEach((entry) => consoleEl.appendChild(buildLogRow(entry)));
+  if (!visible.length && consoleEntries.length) {
+    consoleEl.appendChild(el("div", "out-row meta", "No output matches this filter."));
+  }
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+  updateConsoleCounts();
+}
+
+function updateConsoleCounts() {
+  const counts = { warn: 0, error: 0 };
+  consoleEntries.forEach((e) => {
+    if (e.type === "warn") counts.warn += 1;
+    if (e.type === "error") counts.error += 1;
+  });
+  const warnEl = document.getElementById("console-warn-count");
+  const errEl = document.getElementById("console-error-count");
+  if (warnEl) warnEl.textContent = counts.warn ? String(counts.warn) : "";
+  if (errEl) errEl.textContent = counts.error ? String(counts.error) : "";
+}
+
+function clearConsole() {
+  consoleEntries = [];
+  renderConsole();
 }
 
 function appendLogs(logs) {
   const consoleEl = document.getElementById("console");
   (logs || []).forEach((entry) => {
-    const row = el("div", `out-row ${entry.type || "log"}`);
-    const content = el("div", "out-content");
-    // Legacy plain-text entries stay supported.
-    const parts = entry.parts || [{ k: "text", v: entry.text || "" }];
-    parts.forEach((part, i) => {
-      if (i > 0) content.appendChild(el("span", "jv-punct", " "));
-      content.appendChild(renderValue(part, 0));
-    });
-    row.appendChild(content);
-    const gutter = el("span", "out-gutter", entry.line ? `L${entry.line}` : "");
-    row.appendChild(gutter);
-    consoleEl.appendChild(row);
+    consoleEntries.push(entry);
+    if (entryMatches(entry)) consoleEl.appendChild(buildLogRow(entry));
   });
   consoleEl.scrollTop = consoleEl.scrollHeight;
+  updateConsoleCounts();
 }
 
 // ── Save ──────────────────────────────────────────────────
@@ -1678,6 +1984,15 @@ async function saveSnippet() {
     openActivateModal();
     return;
   }
+
+  // A tab opened from disk saves back to that file; on the Free plan it falls
+  // through to a snippet save so the work is never stranded.
+  const tab = activeTab();
+  if (tab?.filePath) {
+    const written = await saveToDisk(tab);
+    if (written) return;
+  }
+
   const title = document.getElementById("file-name").value.trim() || defaultFileName(lang);
   const code = editor.getValue();
   const result = await window.compiler.saveSnippet({
@@ -1782,11 +2097,11 @@ async function submitActivation() {
 }
 
 function showToast(msg, type) {
-  const consoleEl = document.getElementById("console");
-  const row = el("div", `out-row ${type === "error" ? "error" : "log"}`);
-  row.appendChild(el("div", "out-content", msg));
-  row.appendChild(el("span", "out-gutter", ""));
-  consoleEl.prepend(row);
+  consoleEntries.unshift({
+    type: type === "error" ? "error" : "log",
+    parts: [{ k: "text", v: msg }],
+  });
+  renderConsole();
 }
 
 function esc(str) {
@@ -1965,10 +2280,52 @@ function bindEvents() {
       term?.clear();
       return;
     }
-    document.getElementById("console").innerHTML = "";
+    clearConsole();
+  });
+
+  document.getElementById("console-filters").addEventListener("click", (e) => {
+    const btn = e.target.closest(".console-filter");
+    if (!btn) return;
+    consoleFilter = btn.dataset.filter || "all";
+    document.querySelectorAll(".console-filter").forEach((b) => {
+      b.classList.toggle("active", b === btn);
+    });
+    renderConsole();
+  });
+
+  document.getElementById("console-search").addEventListener("input", (e) => {
+    consoleSearch = e.target.value.trim().toLowerCase();
+    renderConsole();
+  });
+
+  document.getElementById("console-preserve").addEventListener("change", (e) => {
+    preserveLog = e.target.checked;
+    window.compiler.saveSettings({ preserve_log: String(preserveLog) });
   });
   document.getElementById("btn-new").addEventListener("click", () => resetEditor());
   document.getElementById("btn-new-tab").addEventListener("click", () => createTab({}));
+  document.getElementById("btn-open-file").addEventListener("click", openFileFromDisk);
+  document.getElementById("btn-live").addEventListener("click", toggleLiveRun);
+
+  // Drop a file anywhere on the editor to open it in a new tab
+  const editorEl = document.getElementById("editor");
+  ["dragenter", "dragover"].forEach((ev) => {
+    editorEl.addEventListener(ev, (e) => {
+      if (!e.dataTransfer?.types?.includes("Files")) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      editorEl.classList.add("editor-drop-target");
+    });
+  });
+  ["dragleave", "drop"].forEach((ev) => {
+    editorEl.addEventListener(ev, () => editorEl.classList.remove("editor-drop-target"));
+  });
+  editorEl.addEventListener("drop", (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openDroppedFiles(e.dataTransfer.files);
+  });
   document.getElementById("btn-panel-console").addEventListener("click", () => showPanel("console"));
   document.getElementById("btn-panel-terminal").addEventListener("click", () => showPanel("terminal"));
   fileNameInput().addEventListener("input", () => {
@@ -2038,6 +2395,8 @@ function bindEvents() {
     if (mod && e.key === "h") { e.preventDefault(); openHistoryModal(); }
     if (mod && e.key === "t") { e.preventDefault(); renderTemplates(); openModal("modal-templates"); }
     if (mod && e.key === "n") { e.preventDefault(); createTab({}); }
+    if (mod && e.key === "o") { e.preventDefault(); openFileFromDisk(); }
+    if (mod && e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); toggleLiveRun(); }
     if (mod && e.key === "w") { e.preventDefault(); if (activeTabUid) closeTab(activeTabUid); }
     if (mod && e.key === ",") { e.preventDefault(); openSettings(); }
     if (mod && e.key === "/") { e.preventDefault(); openModal("modal-shortcuts"); }

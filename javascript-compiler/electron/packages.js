@@ -14,6 +14,7 @@ const activation = require("./activation");
 const INSPECT_SOURCE = fs
   .readFileSync(path.join(__dirname, "inspect.js"), "utf8")
   .replace(/module\.exports[\s\S]*$/, "");
+const CONSOLE_SOURCE = fs.readFileSync(path.join(__dirname, "console-capture.js"), "utf8");
 
 // Marks the child's structured result line so user stdout writes can't be
 // mistaken for it.
@@ -102,6 +103,95 @@ function listPackages() {
   }
   names.sort((a, b) => a.localeCompare(b));
   return { ok: true, packages: names, path: root, pro: gate.ok };
+}
+
+/**
+ * Collects the .d.ts files of installed packages so the editor can offer real
+ * autocomplete for them. Files keep their node_modules-relative paths, which is
+ * what Monaco's TypeScript worker needs to resolve `require('pkg')`.
+ */
+const TYPES_MAX_TOTAL_BYTES = 4 * 1024 * 1024;
+const TYPES_MAX_FILES = 400;
+const TYPES_MAX_FILE_BYTES = 512 * 1024;
+
+function collectTypeFiles(dir, relBase, out, budget) {
+  if (budget.files >= TYPES_MAX_FILES || budget.bytes >= TYPES_MAX_TOTAL_BYTES) return;
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (budget.files >= TYPES_MAX_FILES || budget.bytes >= TYPES_MAX_TOTAL_BYTES) return;
+    // Skip nested dependency trees and test/fixture noise
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name === ".bin" || entry.name === "test") continue;
+      collectTypeFiles(path.join(dir, entry.name), `${relBase}/${entry.name}`, out, budget);
+      continue;
+    }
+    if (!entry.name.endsWith(".d.ts")) continue;
+    const full = path.join(dir, entry.name);
+    try {
+      const stat = fs.statSync(full);
+      if (stat.size > TYPES_MAX_FILE_BYTES) continue;
+      out.push({ path: `${relBase}/${entry.name}`, content: fs.readFileSync(full, "utf8") });
+      budget.files += 1;
+      budget.bytes += stat.size;
+    } catch {
+      /* unreadable — skip */
+    }
+  }
+}
+
+function listTypeDefinitions() {
+  const nm = nodeModulesDir();
+  if (!fs.existsSync(nm)) return { ok: true, files: [], packages: [] };
+
+  const files = [];
+  const budget = { files: 0, bytes: 0 };
+  const packages = [];
+
+  const addPackage = (pkgName) => {
+    const pkgDir = path.join(nm, pkgName);
+    let manifest = {};
+    try {
+      manifest = JSON.parse(fs.readFileSync(path.join(pkgDir, "package.json"), "utf8"));
+    } catch {
+      manifest = {};
+    }
+    const before = files.length;
+    collectTypeFiles(pkgDir, pkgName, files, budget);
+    if (files.length > before) {
+      packages.push({ name: pkgName, types: manifest.types || manifest.typings || null });
+    }
+  };
+
+  let entries = [];
+  try {
+    entries = fs.readdirSync(nm, { withFileTypes: true });
+  } catch {
+    return { ok: true, files: [], packages: [] };
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    if (entry.name.startsWith("@")) {
+      let scoped = [];
+      try {
+        scoped = fs.readdirSync(path.join(nm, entry.name), { withFileTypes: true });
+      } catch {
+        scoped = [];
+      }
+      scoped.forEach((sub) => {
+        if (sub.isDirectory()) addPackage(`${entry.name}/${sub.name}`);
+      });
+      continue;
+    }
+    addPackage(entry.name);
+  }
+
+  return { ok: true, files, packages, truncated: budget.files >= TYPES_MAX_FILES };
 }
 
 /**
@@ -258,6 +348,7 @@ function runNodeCode(code, { timeoutMs = 10000 } = {}) {
 
   const runnerScript = `
 ${INSPECT_SOURCE}
+${CONSOLE_SOURCE}
 
 const Module = require('module');
 const path = require('path');
@@ -272,18 +363,11 @@ Module._nodeModulePaths = function(from) {
 
 const logs = [];
 let stackOffset = null;
-const capture = (type) => (...args) => {
-  logs.push({
-    type,
-    line: stackOffset === null ? null : userLineFromStack(new Error().stack, stackOffset, 0),
-    parts: serializeArgs(args),
-  });
-};
-console.log = capture('log');
-console.info = capture('info');
-console.warn = capture('warn');
-console.error = capture('error');
-console.debug = capture('log');
+installConsoleCapture({
+  emit: (entry) => logs.push(entry),
+  getLine: () =>
+    stackOffset === null ? null : userLineFromStack(new Error().stack, stackOffset, 0),
+});
 
 const emit = (payload) => {
   process.stdout.write('\\u0000JSC' + JSON.stringify(payload) + '\\n');
@@ -425,6 +509,7 @@ module.exports = {
   sandboxRoot,
   nodeModulesDir,
   listPackages,
+  listTypeDefinitions,
   installPackage,
   removePackage,
   runNodeCode,
