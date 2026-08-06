@@ -15,6 +15,8 @@ let templateFilter = "all";
 let preserveLog = false;
 let liveRun = false;
 let liveRunTimer = null;
+let sidebarCollapsed = false;
+let snippetSearch = "";
 const openFolders = new Set();
 
 // ── Multi-tab editing ───────────────────────────────────────
@@ -375,8 +377,10 @@ async function init() {
   applyTheme(settings.editor_theme || "vs-dark");
   preserveLog = settings.preserve_log === "true";
   liveRun = settings.live_run === "true";
+  sidebarCollapsed = settings.sidebar_collapsed === "true";
   document.getElementById("console-preserve").checked = preserveLog;
   updateLiveRunUI();
+  applySidebarState();
   await refreshProStatus();
   await refreshWorkspace();
   const restored = await restoreSession();
@@ -738,9 +742,34 @@ async function initVersionAndUpdates() {
     if (window.compiler.onUpdateStatus) {
       window.compiler.onUpdateStatus(applyUpdateStatus);
     }
+
+    await announceUpgrade(version);
   } catch (e) {
     console.warn("Version/update init failed:", e);
   }
+}
+
+/**
+ * First launch after an upgrade: show what changed. Skipped on a fresh
+ * install, where there is no previous version to compare against.
+ */
+async function announceUpgrade(version) {
+  const seen = settings.last_seen_version || "";
+  if (seen === version) return;
+
+  await window.compiler.saveSettings({ last_seen_version: version });
+  settings.last_seen_version = version;
+
+  // Versions before this setting existed left no marker, so fall back to
+  // whether this profile has been used before — a fresh install stays quiet.
+  const usedBefore = !!(settings.session_tabs || settings.draft_code || snippets.length);
+  if (!seen && !usedBefore) return;
+
+  showToast(`Updated to v${version} — welcome back.`, "success");
+  const input = document.getElementById("whats-new-version-input");
+  if (input) input.value = version;
+  openModal("modal-whats-new");
+  loadWhatsNewNotes();
 }
 
 function applyUpdateStatus(data) {
@@ -1342,6 +1371,20 @@ function renderFileTree() {
   const tree = document.getElementById("file-tree");
   tree.innerHTML = "";
 
+  // While searching, folders are ignored and every match is listed flat —
+  // hunting through a tree defeats the point of a search box.
+  if (snippetSearch) {
+    const matches = snippets.filter((s) =>
+      `${s.title} ${s.code || ""}`.toLowerCase().includes(snippetSearch),
+    );
+    matches.forEach((s) => tree.appendChild(renderSnippet(s, 0)));
+    if (!matches.length) {
+      tree.innerHTML =
+        '<div class="tree-empty">No file matches<br><span>Try another search</span></div>';
+    }
+    return;
+  }
+
   const rootFolders = folders.filter((f) => !f.parent_id);
   const rootSnippets = snippets.filter((s) => !s.folder_id);
 
@@ -1349,8 +1392,22 @@ function renderFileTree() {
   rootSnippets.forEach((s) => tree.appendChild(renderSnippet(s, 0)));
 
   if (rootFolders.length === 0 && rootSnippets.length === 0) {
-    tree.innerHTML = '<div style="color:#555;font-size:0.75rem;padding:1rem;text-align:center">No files yet.<br>Click + to start.</div>';
+    tree.innerHTML = '<div class="tree-empty">No files yet.<br><span>Click + to start</span></div>';
   }
+}
+
+// ── Sidebar ───────────────────────────────────────────────
+
+function applySidebarState() {
+  document.getElementById("layout").classList.toggle("sidebar-collapsed", sidebarCollapsed);
+  // Monaco needs to re-measure after the width change
+  setTimeout(() => editor?.layout(), 200);
+}
+
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed;
+  applySidebarState();
+  window.compiler.saveSettings({ sidebar_collapsed: String(sidebarCollapsed) });
 }
 
 function renderFolder(folder, depth) {
@@ -2306,6 +2363,12 @@ function bindEvents() {
   document.getElementById("btn-new-tab").addEventListener("click", () => createTab({}));
   document.getElementById("btn-open-file").addEventListener("click", openFileFromDisk);
   document.getElementById("btn-live").addEventListener("click", toggleLiveRun);
+  document.getElementById("btn-collapse-sidebar").addEventListener("click", toggleSidebar);
+  document.getElementById("btn-expand-sidebar").addEventListener("click", toggleSidebar);
+  document.getElementById("snippet-search").addEventListener("input", (e) => {
+    snippetSearch = e.target.value.trim().toLowerCase();
+    renderFileTree();
+  });
 
   // Drop a file anywhere on the editor to open it in a new tab
   const editorEl = document.getElementById("editor");
@@ -2396,6 +2459,7 @@ function bindEvents() {
     if (mod && e.key === "t") { e.preventDefault(); renderTemplates(); openModal("modal-templates"); }
     if (mod && e.key === "n") { e.preventDefault(); createTab({}); }
     if (mod && e.key === "o") { e.preventDefault(); openFileFromDisk(); }
+    if (mod && e.key === "b") { e.preventDefault(); toggleSidebar(); }
     if (mod && e.shiftKey && (e.key === "l" || e.key === "L")) { e.preventDefault(); toggleLiveRun(); }
     if (mod && e.key === "w") { e.preventDefault(); if (activeTabUid) closeTab(activeTabUid); }
     if (mod && e.key === ",") { e.preventDefault(); openSettings(); }
