@@ -5,10 +5,29 @@
 
 export const CHANGELOG_FALLBACK = [
   {
+    version: '1.2.1',
+    title: 'JS Compiler v1.2.1',
+    publishedAt: '2026-08-15',
+    isHome: true,
+    notes: 'Clicking into a file gives the editor focus again, so you can just type.',
+    added: [],
+    fixed: [
+      'Typing doing nothing until you selected a file in the sidebar or clicked Save',
+      'Editor rendering no lines when a tab was activated before layout',
+      'Blank editor with no explanation when it could not be downloaded',
+    ],
+    changed: [],
+    removed: [],
+    changelog: [
+      'Click into a file and type — no more picking a file first',
+      'Editor re-measures itself when a tab is activated',
+    ],
+  },
+  {
     version: '1.2.0',
     title: 'JS Compiler v1.2.0',
     publishedAt: '2026-08-15',
-    isHome: true,
+    isHome: false,
     notes: '25 new templates for JavaScript, TypeScript, HTML+CSS and Node, plus an offline terminal.',
     added: [
       '25 new templates: 7 JavaScript, 6 TypeScript, 6 HTML+CSS, 6 Node',

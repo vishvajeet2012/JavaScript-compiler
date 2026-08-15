@@ -753,11 +753,27 @@ console.log('has node_modules:', fs.existsSync(packages));`,
   },
 ];
 
+// The editor is fetched from a CDN, so a blocked or offline start leaves the
+// window blank with no way to type. Say so instead of showing a dead editor.
+function showEditorLoadFailure() {
+  const el = document.getElementById("editor");
+  if (!el || el.querySelector(".editor-load-error")) return;
+  el.innerHTML =
+    '<div class="editor-load-error">Editor could not be loaded.<br />JS Compiler needs one online start to fetch it — check your connection and restart.</div>';
+}
+
+if (typeof require === "undefined") {
+  showEditorLoadFailure();
+} else {
+
 require.config({
   paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs" },
 });
 
+const editorLoadGuard = setTimeout(showEditorLoadFailure, 25000);
+
 require(["vs/editor/editor.main"], () => {
+  clearTimeout(editorLoadGuard);
   editor = monaco.editor.create(document.getElementById("editor"), {
     value: DEFAULT_CODE,
     language: "javascript",
@@ -782,11 +798,25 @@ require(["vs/editor/editor.main"], () => {
     scheduleLiveRun();
   });
 
+  // Clicking anywhere in the editor must hand it the keyboard. Monaco normally
+  // does this itself, but if it has not been laid out yet the click lands on an
+  // empty background and focus stays on <body> — the editor then looks alive
+  // while every keystroke is dropped.
+  document.getElementById("editor").addEventListener("mousedown", () => {
+    setTimeout(() => {
+      if (!editor || editor.hasTextFocus()) return;
+      editor.layout();
+      editor.focus();
+    }, 0);
+  });
+
   // Last-chance flush so nothing typed is lost on quit
   window.addEventListener("beforeunload", () => persistSession({ immediate: true }));
 
   init();
 });
+
+}
 
 // ── Tabs ──────────────────────────────────────────────────
 
@@ -849,6 +879,10 @@ function activateTab(uid) {
   isDirty = next.dirty;
 
   editor.setModel(next.model);
+  // A tab can be activated before the editor has been measured (boot, restored
+  // session, panel toggles). Without this the editor renders no lines and
+  // swallows clicks, so typing does nothing until something focuses it.
+  editor.layout();
   if (next.viewState) editor.restoreViewState(next.viewState);
   fileNameInput().value = next.title;
   setLanguageUI(next.language, { silent: true });
