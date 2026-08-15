@@ -5,10 +5,38 @@
 
 export const CHANGELOG_FALLBACK = [
   {
+    version: '1.2.0',
+    title: 'JS Compiler v1.2.0',
+    publishedAt: '2026-08-15',
+    isHome: true,
+    notes: '25 new templates for JavaScript, TypeScript, HTML+CSS and Node, plus an offline terminal.',
+    added: [
+      '25 new templates: 7 JavaScript, 6 TypeScript, 6 HTML+CSS, 6 Node',
+      'HTML+CSS templates with real styling (grid, flexbox, animation, theming)',
+      'Node templates for fs, JSON storage, crypto, events and fetch',
+    ],
+    fixed: [
+      'Terminal failing to load without an internet connection',
+      'TypeScript rest parameters (...args: number[]) breaking Run',
+      'TypeScript optional parameters (name?: string) breaking Run',
+      'Object literals being mangled by the TypeScript type stripper',
+      'Async template output being cut off before it printed',
+    ],
+    changed: [
+      'xterm terminal library ships inside the app instead of a CDN',
+    ],
+    removed: [],
+    changelog: [
+      '38 templates across JavaScript, TypeScript, HTML+CSS and Node',
+      'Terminal works offline (xterm bundled with the app)',
+      'Better TypeScript support: rest and optional parameters',
+    ],
+  },
+  {
     version: '1.1.2',
     title: 'JS Compiler v1.1.2',
     publishedAt: '2026-08-15',
-    isHome: true,
+    isHome: false,
     notes: 'New tabs keep the language you selected instead of resetting to JavaScript.',
     added: [],
     fixed: [

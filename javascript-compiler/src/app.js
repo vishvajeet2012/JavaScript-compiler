@@ -88,7 +88,7 @@ const TEMPLATES = [
     name: "Async / Await",
     desc: "Promise with delay",
     language: "javascript",
-    code: `function delay(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function main() {\n  console.log("Start...");\n  await delay(1000);\n  console.log("Done after 1 second!");\n}\n\nmain();`,
+    code: `function delay(ms) {\n  return new Promise(resolve => setTimeout(resolve, ms));\n}\n\nasync function main() {\n  console.log("Start...");\n  await delay(1000);\n  console.log("Done after 1 second!");\n}\n\nawait main();`,
   },
   {
     name: "Class OOP",
@@ -137,6 +137,619 @@ const TEMPLATES = [
     desc: "Install lodash via npm bar, then require it",
     language: "node",
     code: `// 1) Language: Node (Pro)\n// 2) npm bar: type "lodash" → Install\n// 3) Run\n\nconst _ = require('lodash');\n\nconst nums = [1, 2, 3, 4, 5];\nconsole.log('sum', _.sum(nums));\nconsole.log('chunk', _.chunk(nums, 2));\nconsole.log('uniq', _.uniq([1, 1, 2, 3, 3]));\n`,
+  },
+  // ── JavaScript ──────────────────────────────────────────
+  {
+    name: "Loops & FizzBuzz",
+    desc: "for, while, and the classic interview warm-up",
+    language: "javascript",
+    code: `for (let i = 1; i <= 15; i++) {
+  if (i % 15 === 0) console.log(i, 'FizzBuzz');
+  else if (i % 3 === 0) console.log(i, 'Fizz');
+  else if (i % 5 === 0) console.log(i, 'Buzz');
+  else console.log(i);
+}
+
+let countdown = 3;
+while (countdown > 0) {
+  console.log('t-minus', countdown);
+  countdown--;
+}`,
+  },
+  {
+    name: "Destructuring & Spread",
+    desc: "Unpack objects and arrays, merge with ...",
+    language: "javascript",
+    code: `const user = { id: 7, name: 'Asha', city: 'Pune' };
+const { name, ...rest } = user;
+console.log(name, rest);
+
+const [first, second, ...others] = [10, 20, 30, 40];
+console.log(first, second, others);
+
+const defaults = { theme: 'dark', fontSize: 14 };
+const settings = { ...defaults, fontSize: 16 };
+console.log('merged:', settings);`,
+  },
+  {
+    name: "Objects & JSON",
+    desc: "keys, values, entries, parse & stringify",
+    language: "javascript",
+    code: `const book = { title: 'Eloquent JS', year: 2018, tags: ['js', 'book'] };
+
+console.log('keys:', Object.keys(book));
+console.log('values:', Object.values(book));
+
+for (const [key, value] of Object.entries(book)) {
+  console.log(key, '=>', value);
+}
+
+const text = JSON.stringify(book);
+console.log('json:', text);
+console.log('back:', JSON.parse(text).title);`,
+  },
+  {
+    name: "Map & Set",
+    desc: "Unique values and key/value collections",
+    language: "javascript",
+    code: `const seen = new Set([1, 2, 2, 3, 3, 3]);
+console.log('unique:', [...seen], 'size:', seen.size);
+
+const scores = new Map();
+scores.set('asha', 92).set('ravi', 78);
+
+console.log('asha:', scores.get('asha'));
+console.log('has ravi:', scores.has('ravi'));
+
+for (const [player, score] of scores) {
+  console.log(player, score);
+}`,
+  },
+  {
+    name: "Error Handling",
+    desc: "try / catch / finally and custom errors",
+    language: "javascript",
+    code: `class ValidationError extends Error {
+  constructor(field) {
+    super('Invalid field: ' + field);
+    this.name = 'ValidationError';
+    this.field = field;
+  }
+}
+
+function parseAge(value) {
+  const age = Number(value);
+  if (Number.isNaN(age)) throw new ValidationError('age');
+  return age;
+}
+
+for (const input of ['25', 'abc']) {
+  try {
+    console.log('parsed:', parseAge(input));
+  } catch (err) {
+    console.error(err.name + ':', err.message);
+  } finally {
+    console.log('checked', input);
+  }
+}`,
+  },
+  {
+    name: "Closures & Counter",
+    desc: "Functions that remember their scope",
+    language: "javascript",
+    code: `function makeCounter(start = 0) {
+  let count = start;
+  return {
+    inc: () => ++count,
+    dec: () => --count,
+    value: () => count,
+  };
+}
+
+const counter = makeCounter(10);
+counter.inc();
+counter.inc();
+counter.dec();
+console.log('value:', counter.value());
+
+const other = makeCounter();
+console.log('independent:', other.value());`,
+  },
+  {
+    name: "Sort & Search",
+    desc: "sort, find, some, every on real data",
+    language: "javascript",
+    code: `const people = [
+  { name: 'Ravi', age: 31 },
+  { name: 'Asha', age: 24 },
+  { name: 'Meera', age: 45 },
+];
+
+const byAge = [...people].sort((a, b) => a.age - b.age);
+console.log('youngest first:', byAge.map(p => p.name));
+
+console.log('first over 30:', people.find(p => p.age > 30));
+console.log('any teenager?', people.some(p => p.age < 20));
+console.log('all adults?', people.every(p => p.age >= 18));`,
+  },
+
+  // ── TypeScript ──────────────────────────────────────────
+  {
+    name: "TS Types & Unions",
+    desc: "Annotations, unions and literal types",
+    language: "typescript",
+    code: `type Status = 'idle' | 'loading' | 'done';
+
+let count: number = 0;
+let label: string = 'progress';
+let ready: boolean = false;
+let status: Status = 'loading';
+
+count = count + 5;
+ready = count > 3;
+
+console.log(label, count, ready);
+console.log('status:', status);
+console.log('types:', typeof count, typeof label, typeof ready);`,
+  },
+  {
+    name: "TS Functions",
+    desc: "Typed params, return types, defaults",
+    language: "typescript",
+    code: `function area(width: number, height: number): number {
+  return width * height;
+}
+
+const shout = (text: string, times: number = 2): string => {
+  return (text + '! ').repeat(times).trim();
+};
+
+function total(...prices: number[]): number {
+  return prices.reduce((sum, p) => sum + p, 0);
+}
+
+console.log('area:', area(4, 5));
+console.log('shout:', shout('Ship it'));
+console.log('total:', total(199, 49, 12));`,
+  },
+  {
+    name: "TS Classes",
+    desc: "Class with typed constructor & methods",
+    language: "typescript",
+    code: `class Account {
+  constructor(owner: string, balance: number) {
+    this.owner = owner;
+    this.balance = balance;
+  }
+
+  deposit(amount: number): number {
+    this.balance += amount;
+    return this.balance;
+  }
+
+  toString(): string {
+    return this.owner + ': ' + this.balance;
+  }
+}
+
+const acc = new Account('Asha', 500);
+acc.deposit(250);
+console.log(acc.toString());
+console.log('balance:', acc.balance);`,
+  },
+  {
+    name: "TS Type Guards",
+    desc: "Narrow a union safely at runtime",
+    language: "typescript",
+    code: `type Input = string | number;
+
+function isString(value: Input): value is string {
+  return typeof value === 'string';
+}
+
+function describe(value: Input): string {
+  if (isString(value)) return 'text of length ' + value.length;
+  return 'number doubled: ' + value * 2;
+}
+
+console.log(describe('hello'));
+console.log(describe(21));`,
+  },
+  {
+    name: "TS Arrays & Tuples",
+    desc: "Typed arrays, tuples and map()",
+    language: "typescript",
+    code: `const scores: number[] = [88, 74, 95];
+const point: [number, number] = [12, 40];
+const names: Array<string> = ['Asha', 'Ravi'];
+
+const doubled: number[] = scores.map((n: number) => n * 2);
+
+console.log('scores:', scores, 'max:', Math.max(...scores));
+console.log('point x/y:', point[0], point[1]);
+console.log('names:', names.join(' & '));
+console.log('doubled:', doubled);`,
+  },
+  {
+    name: "TS Async / Await",
+    desc: "Typed promises with await",
+    language: "typescript",
+    code: `type Job = { id: number; title: string };
+
+function fetchJob(id: number): Promise<Job> {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve({ id: id, title: 'Job #' + id }), 300);
+  });
+}
+
+async function main(): Promise<void> {
+  console.log('loading…');
+  const job: Job = await fetchJob(42);
+  console.log('loaded:', job.title);
+
+  const many: Job[] = await Promise.all([fetchJob(1), fetchJob(2)]);
+  console.log('batch:', many.map((j: Job) => j.title));
+}
+
+await main();`,
+  },
+
+  // ── HTML + CSS ──────────────────────────────────────────
+  {
+    name: "HTML + CSS Card",
+    desc: "Flexbox card with styling",
+    language: "html",
+    code: `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #0f1117; font-family: system-ui, sans-serif; display: flex; justify-content: center; padding: 40px; }
+  .card { background: #181b24; color: #e6e8ee; border: 1px solid #262a36; border-radius: 12px; padding: 24px; width: 280px; }
+  .card h2 { margin: 0 0 8px; font-size: 18px; }
+  .card p { margin: 0; color: #98a2b3; font-size: 14px; line-height: 1.5; }
+  .card .tag { display: inline-block; margin-top: 16px; background: #7c3aed22; color: #a78bfa; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h2>JS Compiler</h2>
+    <p>Write, run and ship JavaScript without leaving your desktop.</p>
+    <span class="tag">Pro</span>
+  </div>
+  <script>
+    const card = { title: 'JS Compiler', tag: 'Pro' };
+    if (typeof document !== 'undefined') {
+      document.querySelector('.card h2').textContent = card.title;
+    }
+    console.log('card rendered:', card.title, '·', card.tag);
+  </script>
+</body>
+</html>`,
+  },
+  {
+    name: "CSS Grid Gallery",
+    desc: "Responsive grid layout",
+    language: "html",
+    code: `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #0f1117; color: #e6e8ee; font-family: system-ui, sans-serif; padding: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+  .tile { background: linear-gradient(135deg, #7c3aed, #2563eb); border-radius: 10px; height: 90px; display: grid; place-items: center; font-weight: 600; }
+</style>
+</head>
+<body>
+  <h2>Gallery</h2>
+  <div class="grid" id="grid"></div>
+  <script>
+    const tiles = ['One', 'Two', 'Three', 'Four', 'Five', 'Six'];
+
+    if (typeof document !== 'undefined') {
+      const grid = document.getElementById('grid');
+      tiles.forEach((label) => {
+        const div = document.createElement('div');
+        div.className = 'tile';
+        div.textContent = label;
+        grid.appendChild(div);
+      });
+    }
+
+    console.log('tiles:', tiles.length, tiles.join(', '));
+  </script>
+</body>
+</html>`,
+  },
+  {
+    name: "CSS Variables Theme",
+    desc: "Dark / light theme switch",
+    language: "html",
+    code: `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  :root { --bg: #ffffff; --fg: #111827; --accent: #7c3aed; }
+  [data-theme="dark"] { --bg: #0f1117; --fg: #e6e8ee; --accent: #a78bfa; }
+  body { background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; padding: 32px; transition: background .2s; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer; }
+</style>
+</head>
+<body data-theme="dark">
+  <h2>Theme demo</h2>
+  <button id="toggle">Toggle theme</button>
+  <script>
+    let theme = 'dark';
+
+    function nextTheme(current) {
+      return current === 'dark' ? 'light' : 'dark';
+    }
+
+    if (typeof document !== 'undefined') {
+      document.getElementById('toggle').addEventListener('click', () => {
+        theme = nextTheme(theme);
+        document.body.dataset.theme = theme;
+      });
+    }
+
+    console.log('start:', theme);
+    console.log('after one click:', nextTheme(theme));
+    console.log('after two clicks:', nextTheme(nextTheme(theme)));
+  </script>
+</body>
+</html>`,
+  },
+  {
+    name: "CSS Animation",
+    desc: "Keyframes, transition and hover",
+    language: "html",
+    code: `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #0f1117; display: grid; place-items: center; height: 100vh; margin: 0; }
+  .pulse { width: 90px; height: 90px; border-radius: 50%; background: #7c3aed; animation: pulse 1.4s ease-in-out infinite; }
+  .pulse:hover { background: #22d3ee; transform: scale(1.1); transition: all .2s ease; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 #7c3aed88; }
+    50% { box-shadow: 0 0 0 22px #7c3aed00; }
+  }
+</style>
+</head>
+<body>
+  <div class="pulse"></div>
+  <script>
+    const animation = { name: 'pulse', duration: 1.4, easing: 'ease-in-out', loops: 'infinite' };
+    console.log('animation:', animation.name, animation.duration + 's', animation.easing);
+    console.log('frames at 60fps:', Math.round(animation.duration * 60));
+  </script>
+</body>
+</html>`,
+  },
+  {
+    name: "HTML Form Validation",
+    desc: "Form markup with pure validation logic",
+    language: "html",
+    code: `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #0f1117; color: #e6e8ee; font-family: system-ui, sans-serif; padding: 32px; }
+  input { display: block; width: 240px; margin: 8px 0; padding: 10px; border-radius: 8px; border: 1px solid #262a36; background: #181b24; color: inherit; }
+  .error { color: #f87171; font-size: 13px; }
+</style>
+</head>
+<body>
+  <form id="signup">
+    <input id="email" type="email" placeholder="you@example.com" />
+    <input id="password" type="password" placeholder="password" />
+    <button type="submit">Sign up</button>
+    <p class="error" id="msg"></p>
+  </form>
+  <script>
+    function validate(email, password) {
+      const errors = [];
+      if (!email.includes('@')) errors.push('Email must contain @');
+      if (password.length < 8) errors.push('Password needs 8+ characters');
+      return errors;
+    }
+
+    if (typeof document !== 'undefined') {
+      document.getElementById('signup').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const errors = validate(email.value, password.value);
+        document.getElementById('msg').textContent = errors.join(' · ');
+      });
+    }
+
+    console.log('valid input:', validate('me@site.com', 'supersecret'));
+    console.log('bad input:', validate('nope', '123'));
+  </script>
+</body>
+</html>`,
+  },
+  {
+    name: "HTML Todo List",
+    desc: "List rendering + state logic",
+    language: "html",
+    code: `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #0f1117; color: #e6e8ee; font-family: system-ui, sans-serif; padding: 32px; }
+  ul { list-style: none; padding: 0; width: 260px; }
+  li { background: #181b24; border: 1px solid #262a36; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+  li.done span { text-decoration: line-through; color: #6b7280; }
+</style>
+</head>
+<body>
+  <h2>Todo</h2>
+  <ul id="list"></ul>
+  <script>
+    let todos = [
+      { id: 1, text: 'Install a package', done: true },
+      { id: 2, text: 'Write a script', done: false },
+      { id: 3, text: 'Ship it', done: false },
+    ];
+
+    function toggle(items, id) {
+      return items.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+    }
+
+    function render(items) {
+      if (typeof document === 'undefined') return;
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+      items.forEach((t) => {
+        const li = document.createElement('li');
+        li.className = t.done ? 'done' : '';
+        li.innerHTML = '<span>' + t.text + '</span><em>' + (t.done ? 'done' : 'open') + '</em>';
+        list.appendChild(li);
+      });
+    }
+
+    render(todos);
+    todos = toggle(todos, 2);
+    render(todos);
+
+    console.log('open items:', todos.filter((t) => !t.done).map((t) => t.text));
+    console.log('completed:', todos.filter((t) => t.done).length + '/' + todos.length);
+  </script>
+</body>
+</html>`,
+  },
+
+  // ── Node ────────────────────────────────────────────────
+  {
+    name: "Node fs read / write",
+    desc: "Write and read a file in the sandbox",
+    language: "node",
+    code: `const fs = require('fs');
+const path = require('path');
+
+const file = path.join(process.cwd(), 'notes.txt');
+
+fs.writeFileSync(file, 'Line one\\nLine two\\n', 'utf8');
+fs.appendFileSync(file, 'Line three\\n', 'utf8');
+
+const text = fs.readFileSync(file, 'utf8');
+console.log('file:', file);
+console.log('lines:', text.trim().split('\\n'));
+console.log('size:', fs.statSync(file).size, 'bytes');
+
+fs.unlinkSync(file);
+console.log('cleaned up:', !fs.existsSync(file));`,
+  },
+  {
+    name: "Node JSON store",
+    desc: "Tiny read/modify/write JSON database",
+    language: "node",
+    code: `const fs = require('fs');
+const path = require('path');
+
+const db = path.join(process.cwd(), 'users.json');
+
+function load() {
+  if (!fs.existsSync(db)) return [];
+  return JSON.parse(fs.readFileSync(db, 'utf8'));
+}
+
+function save(rows) {
+  fs.writeFileSync(db, JSON.stringify(rows, null, 2), 'utf8');
+}
+
+save([]);
+const users = load();
+users.push({ id: 1, name: 'Asha' }, { id: 2, name: 'Ravi' });
+save(users);
+
+console.log('stored:', load());
+console.log('names:', load().map((u) => u.name).join(', '));
+
+fs.unlinkSync(db);`,
+  },
+  {
+    name: "Node crypto hash",
+    desc: "Hashes, random ids and base64",
+    language: "node",
+    code: `const crypto = require('crypto');
+
+const password = 'super-secret';
+const hash = crypto.createHash('sha256').update(password).digest('hex');
+console.log('sha256:', hash);
+
+const id = crypto.randomUUID();
+console.log('uuid:', id);
+
+const token = crypto.randomBytes(16).toString('hex');
+console.log('token:', token);
+
+const encoded = Buffer.from('JS Compiler').toString('base64');
+console.log('base64:', encoded);
+console.log('decoded:', Buffer.from(encoded, 'base64').toString('utf8'));`,
+  },
+  {
+    name: "Node EventEmitter",
+    desc: "Publish / subscribe with events",
+    language: "node",
+    code: `const EventEmitter = require('events');
+
+class Jobs extends EventEmitter {}
+const jobs = new Jobs();
+
+jobs.on('start', (name) => console.log('started:', name));
+jobs.on('done', (name, ms) => console.log('finished:', name, 'in', ms + 'ms'));
+jobs.once('ready', () => console.log('ready fires only once'));
+
+jobs.emit('ready');
+jobs.emit('ready');
+
+jobs.emit('start', 'build');
+await new Promise((resolve) => setTimeout(resolve, 100));
+jobs.emit('done', 'build', 120);
+
+console.log('listeners on start:', jobs.listenerCount('start'));`,
+  },
+  {
+    name: "Node fetch API",
+    desc: "Call a real HTTP API with async/await",
+    language: "node",
+    code: `// Needs an internet connection.
+async function main() {
+  try {
+    const res = await fetch('https://api.github.com/repos/nodejs/node');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const repo = await res.json();
+    console.log('repo:', repo.full_name);
+    console.log('stars:', repo.stargazers_count);
+    console.log('language:', repo.language);
+  } catch (err) {
+    console.error('request failed:', err.message);
+  }
+}
+
+await main();`,
+  },
+  {
+    name: "Node folder listing",
+    desc: "Walk the sandbox folder with fs",
+    language: "node",
+    code: `const fs = require('fs');
+const path = require('path');
+
+const dir = process.cwd();
+const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+console.log('sandbox:', dir);
+console.log('entries:', entries.length);
+
+for (const entry of entries.slice(0, 10)) {
+  const kind = entry.isDirectory() ? 'dir ' : 'file';
+  console.log(kind, entry.name);
+}
+
+const packages = path.join(dir, 'node_modules');
+console.log('has node_modules:', fs.existsSync(packages));`,
   },
 ];
 
@@ -2206,7 +2819,7 @@ async function ensureTerminal() {
     return;
   }
   if (typeof Terminal === "undefined") {
-    container.innerHTML = '<div class="terminal-locked">Terminal library failed to load. Check your internet connection and restart.</div>';
+    container.innerHTML = '<div class="terminal-locked">Terminal library failed to load. Please restart JS Compiler.</div>';
     return;
   }
 

@@ -3,6 +3,18 @@
  * Supports: javascript, typescript (stripped), html (+js), node-style
  */
 
+/**
+ * A type annotation always starts with a primitive keyword, a capitalised type
+ * name, a type predicate (`v is string`), or a bracketed type — never with a
+ * literal value. Anchoring on that keeps object literals such as
+ * `{ a: 1, b: 2, c: 3 }` from being mistaken for annotations.
+ */
+const TYPE_START = String.raw`(?:\b(?:number|string|boolean|any|unknown|void|never|object|symbol|bigint|null|undefined|readonly)\b|[A-Za-z_$][\w$]*\s+is\b|[A-Z][\w$]*|\[|\()`;
+// Parentheses stay out of the body on purpose: allowing them lets the match run
+// past the parameter list and swallow the function body.
+const TYPE_BODY = String.raw`[A-Za-z0-9_$.<>\[\]|&{}\s,'"]*`;
+const TYPE = TYPE_START + TYPE_BODY;
+
 function stripTypeScript(code) {
   let src = String(code || "");
 
@@ -22,14 +34,17 @@ function stripTypeScript(code) {
   src = src.replace(/\s+satisfies\s+[A-Za-z0-9_$.<>\[\]|&\s,]+(?=[,);\n])/g, "");
 
   // Remove return type annotations: ): Type {
-  src = src.replace(/\)\s*:\s*[A-Za-z0-9_$.<>\[\]|&{}\s,]+\s*\{/g, ") {");
-  src = src.replace(/\)\s*:\s*[A-Za-z0-9_$.<>\[\]|&{}\s,]+\s*=>/g, ") =>");
+  src = src.replace(new RegExp(String.raw`\)\s*:\s*${TYPE}\s*\{`, "g"), ") {");
+  src = src.replace(new RegExp(String.raw`\)\s*:\s*${TYPE}\s*=>`, "g"), ") =>");
 
-  // Remove param / variable type annotations: name: Type
-  // (conservative — avoids matching object keys in some cases via simple pass)
-  src = src.replace(/([,(]\s*[A-Za-z_$][\w$]*)\s*:\s*[A-Za-z0-9_$.<>\[\]|&{}\s,]+(?=\s*[,)=])/g, "$1");
+  // Remove param type annotations, including rest (...args: T[]) and
+  // optional (name?: T) parameters.
   src = src.replace(
-    /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*[A-Za-z0-9_$.<>\[\]|&{}\s,]+\s*=/g,
+    new RegExp(String.raw`([,(]\s*(?:\.\.\.)?[A-Za-z_$][\w$]*)\??\s*:\s*${TYPE}(?=\s*[,)=])`, "g"),
+    "$1"
+  );
+  src = src.replace(
+    new RegExp(String.raw`\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*${TYPE}\s*=`, "g"),
     "$1 $2 ="
   );
 
