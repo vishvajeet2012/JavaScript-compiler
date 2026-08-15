@@ -5,10 +5,28 @@
 
 export const CHANGELOG_FALLBACK = [
   {
+    version: '1.1.2',
+    title: 'JS Compiler v1.1.2',
+    publishedAt: '2026-08-15',
+    isHome: true,
+    notes: 'New tabs keep the language you selected instead of resetting to JavaScript.',
+    added: [],
+    fixed: [
+      'Language dropdown resetting to JavaScript when creating a new file',
+      'npm bar disappearing on a new tab while working in Node mode',
+    ],
+    changed: [],
+    removed: [],
+    changelog: [
+      'New tabs keep the selected language (Node stays Node)',
+      'npm bar stays open when you add a Node file',
+    ],
+  },
+  {
     version: '1.1.1',
     title: 'JS Compiler v1.1.1',
     publishedAt: '2026-08-15',
-    isHome: true,
+    isHome: false,
     notes: 'npm install works again on Windows, and the npm bar accepts full commands.',
     added: [
       'Install multiple packages at once (lodash axios dayjs)',

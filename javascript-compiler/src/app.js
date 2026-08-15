@@ -199,7 +199,9 @@ function syncActiveTab() {
 function createTab({
   snippetId = null,
   folderId = null,
-  language = "javascript",
+  // A new tab keeps the language you are already working in — switching to Node
+  // and pressing + should not drop you back to plain JavaScript.
+  language = activeLanguage,
   title,
   code = DEFAULT_CODE,
   filePath = null,
