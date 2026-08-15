@@ -9,6 +9,102 @@ const path = require("path");
 const { spawn } = require("child_process");
 const activation = require("./activation");
 
+const NODE_EXE = process.platform === "win32" ? "node.exe" : "node";
+
+let nodeExeCache;
+let npmCliCache;
+
+/** PATH entries plus the usual Node install dirs a GUI app may not inherit. */
+function binDirs() {
+  const dirs = String(process.env.PATH || process.env.Path || "")
+    .split(path.delimiter)
+    .map((d) => d.trim().replace(/^"|"$/g, ""))
+    .filter(Boolean);
+  if (process.platform === "win32") {
+    dirs.push(
+      path.join(process.env.ProgramFiles || "C:\\Program Files", "nodejs"),
+      path.join(process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)", "nodejs"),
+      path.join(process.env.LOCALAPPDATA || "", "Programs", "nodejs"),
+      path.join(process.env.APPDATA || "", "npm"),
+    );
+  } else {
+    dirs.push("/usr/local/bin", "/usr/bin", "/opt/homebrew/bin", "/opt/local/bin");
+  }
+  return dirs.filter(Boolean);
+}
+
+function isFile(p) {
+  try {
+    return fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Absolute path to a system node binary, or null when Node is not installed. */
+function findNodeExe() {
+  if (nodeExeCache !== undefined) return nodeExeCache;
+  nodeExeCache = null;
+  for (const dir of binDirs()) {
+    const full = path.join(dir, NODE_EXE);
+    if (isFile(full)) {
+      nodeExeCache = full;
+      break;
+    }
+  }
+  return nodeExeCache;
+}
+
+/** Absolute path to npm's own entry script (npm-cli.js), or null. */
+function findNpmCli() {
+  if (npmCliCache !== undefined) return npmCliCache;
+  npmCliCache = null;
+  for (const dir of binDirs()) {
+    const hit = [
+      // Windows / self-contained layout: <dir>/node_modules/npm
+      path.join(dir, "node_modules", "npm", "bin", "npm-cli.js"),
+      // POSIX prefix layout: <prefix>/bin plus <prefix>/lib/node_modules/npm
+      path.join(dir, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+    ].find(isFile);
+    if (hit) {
+      npmCliCache = path.normalize(hit);
+      break;
+    }
+  }
+  return npmCliCache;
+}
+
+/**
+ * Starts npm without a shell.
+ *
+ * Node refuses to spawn .cmd/.bat files directly since the CVE-2024-27980 fix,
+ * so spawn("npm.cmd", ...) throws EINVAL on Windows. Running npm's own JS entry
+ * point through node.exe skips the shim entirely; the shell fallback only kicks
+ * in on machines where npm-cli.js cannot be located.
+ */
+function spawnNpm(args, opts) {
+  const nodeExe = findNodeExe();
+  const npmCli = findNpmCli();
+  if (nodeExe && npmCli) {
+    return spawn(nodeExe, [npmCli, ...args], { ...opts, shell: false });
+  }
+  if (process.platform === "win32") {
+    // Every argument here is validated (no spaces, quotes or separators), so
+    // there is nothing for cmd.exe to reinterpret.
+    return spawn("npm.cmd", args, { ...opts, shell: true });
+  }
+  return spawn("npm", args, { ...opts, shell: false });
+}
+
+/** Human-readable reason npm could not be started. */
+function npmStartError(err) {
+  const code = err && err.code;
+  if (code === "ENOENT" || code === "EINVAL" || code === "ERR_INVALID_ARG_VALUE") {
+    return "npm not found. Install Node.js (it includes npm), then restart JS Compiler.";
+  }
+  return (err && err.message) || "npm failed to start";
+}
+
 // Serializer source, inlined into the child script. Plain `node` cannot read
 // files inside an asar archive, so it is injected as text rather than required.
 const INSPECT_SOURCE = fs
@@ -75,6 +171,29 @@ function validatePackageSpec(spec) {
   // allow name or name@version or @scope/name@version
   if (!SAFE_PKG.test(s)) return null;
   return s;
+}
+
+// Words people paste along with the package name: "npm i lodash", "yarn add ky".
+const INSTALL_WORDS = new Set(["npm", "pnpm", "yarn", "bun", "sudo", "install", "add", "i"]);
+
+/**
+ * Accepts what a user actually types — "lodash", "npm i lodash",
+ * "yarn add axios@1 dayjs" — and returns the clean package specs, or null when
+ * nothing valid is left.
+ */
+function parsePackageSpecs(spec) {
+  const tokens = String(spec || "").trim().split(/[\s,]+/).filter(Boolean);
+  // Keep the last token: "i" on its own is a real package name.
+  while (tokens.length > 1 && INSTALL_WORDS.has(tokens[0].toLowerCase())) tokens.shift();
+
+  const out = [];
+  for (const token of tokens) {
+    if (token.startsWith("-")) continue; // stray flag such as --save-dev
+    const pkg = validatePackageSpec(token);
+    if (!pkg) return null;
+    if (!out.includes(pkg)) out.push(pkg);
+  }
+  return out.length ? out.slice(0, 10) : null;
 }
 
 function listPackages() {
@@ -201,32 +320,37 @@ function installPackage(spec, { timeoutMs = 120000 } = {}) {
   const gate = ensurePro();
   if (!gate.ok) return Promise.resolve(gate);
 
-  const pkg = validatePackageSpec(spec);
-  if (!pkg) {
+  const pkgs = parsePackageSpecs(spec);
+  if (!pkgs) {
     return Promise.resolve({
       ok: false,
       error: "Invalid package name. Example: lodash or lodash@4",
     });
   }
+  const label = pkgs.join(", ");
 
   const cwd = sandboxRoot();
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 
   return new Promise((resolve) => {
     const args = [
       "install",
-      pkg,
+      ...pkgs,
       "--save",
       "--no-fund",
       "--no-audit",
       "--loglevel=error",
     ];
-    const child = spawn(npmCmd, args, {
-      cwd,
-      env: { ...process.env, npm_config_yes: "true" },
-      windowsHide: true,
-      shell: false,
-    });
+    let child;
+    try {
+      child = spawnNpm(args, {
+        cwd,
+        env: { ...process.env, npm_config_yes: "true" },
+        windowsHide: true,
+      });
+    } catch (err) {
+      resolve({ ok: false, error: npmStartError(err) });
+      return;
+    }
 
     let stdout = "";
     let stderr = "";
@@ -253,13 +377,7 @@ function installPackage(spec, { timeoutMs = 120000 } = {}) {
 
     child.on("error", (err) => {
       clearTimeout(timer);
-      resolve({
-        ok: false,
-        error:
-          err.code === "ENOENT"
-            ? "npm not found. Install Node.js (includes npm) on this machine."
-            : err.message,
-      });
+      resolve({ ok: false, error: npmStartError(err) });
     });
 
     child.on("close", (code) => {
@@ -267,8 +385,9 @@ function installPackage(spec, { timeoutMs = 120000 } = {}) {
       if (code === 0) {
         resolve({
           ok: true,
-          package: pkg,
-          message: `Installed ${pkg}`,
+          package: pkgs[0],
+          installed: pkgs,
+          message: `Installed ${label}`,
           packages: listPackages().packages,
         });
       } else {
@@ -293,26 +412,24 @@ function removePackage(spec) {
   }
 
   const cwd = sandboxRoot();
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 
   return new Promise((resolve) => {
-    const child = spawn(npmCmd, ["uninstall", pkg, "--save", "--loglevel=error"], {
-      cwd,
-      windowsHide: true,
-      shell: false,
-    });
+    let child;
+    try {
+      child = spawnNpm(["uninstall", pkg, "--save", "--loglevel=error"], {
+        cwd,
+        windowsHide: true,
+      });
+    } catch (err) {
+      resolve({ ok: false, error: npmStartError(err) });
+      return;
+    }
     let stderr = "";
     child.stderr.on("data", (d) => {
       stderr += d.toString();
     });
     child.on("error", (err) => {
-      resolve({
-        ok: false,
-        error:
-          err.code === "ENOENT"
-            ? "npm not found. Install Node.js on this machine."
-            : err.message,
-      });
+      resolve({ ok: false, error: npmStartError(err) });
     });
     child.on("close", (code) => {
       if (code === 0) {
@@ -343,8 +460,9 @@ function runNodeCode(code, { timeoutMs = 10000 } = {}) {
   }
 
   const cwd = sandboxRoot();
-  // Prefer system `node` for real modules; running electron as node is risky
-  const tryNode = process.platform === "win32" ? "node.exe" : "node";
+  // Prefer system `node` for real modules; running electron as node is risky.
+  // An absolute path also covers GUI launches that inherit a trimmed PATH.
+  const tryNode = findNodeExe() || NODE_EXE;
 
   const runnerScript = `
 ${INSPECT_SOURCE}
@@ -514,4 +632,5 @@ module.exports = {
   removePackage,
   runNodeCode,
   validatePackageSpec,
+  parsePackageSpecs,
 };

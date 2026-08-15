@@ -5,10 +5,36 @@
 
 export const CHANGELOG_FALLBACK = [
   {
+    version: '1.1.1',
+    title: 'JS Compiler v1.1.1',
+    publishedAt: '2026-08-15',
+    isHome: true,
+    notes: 'npm install works again on Windows, and the npm bar accepts full commands.',
+    added: [
+      'Install multiple packages at once (lodash axios dayjs)',
+    ],
+    fixed: [
+      'npm install failing with "spawn EINVAL" on Windows',
+      'npm uninstall failing the same way on Windows',
+      '"Invalid package name" when typing npm i lodash or yarn add axios',
+      'Node.js not found when the app launched with a trimmed PATH',
+      'Clearer message when Node.js is genuinely not installed',
+    ],
+    changed: [
+      'npm bar placeholder shows the accepted formats',
+    ],
+    removed: [],
+    changelog: [
+      'npm install fixed on Windows',
+      'npm bar accepts "npm i lodash" style input',
+      'Multiple packages per install',
+    ],
+  },
+  {
     version: '1.1.0',
     title: 'JS Compiler v1.1.0',
     publishedAt: '2026-08-05',
-    isHome: true,
+    isHome: false,
     notes: 'Multi-tab editing, session restore, integrated terminal, rich console output & autocomplete.',
     added: [
       'Multi-tab editing with undo history & cursor persistence',
